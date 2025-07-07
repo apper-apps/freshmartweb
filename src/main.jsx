@@ -49,24 +49,46 @@ class BackgroundSDKLoader {
 function FastErrorBoundary({ children, fallback }) {
   const [hasError, setHasError] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const [errorInfo, setErrorInfo] = React.useState(null);
 
   React.useEffect(() => {
     const handleError = (event) => {
+      console.error('Global error caught:', event.error);
       setHasError(true);
       setError(event.error);
+      setErrorInfo(event.error?.stack || 'No stack trace available');
     };
 
     const handleUnhandledRejection = (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
       setHasError(true);
       setError(event.reason);
+      setErrorInfo(event.reason?.stack || 'No stack trace available');
+    };
+
+    const handleReactError = (error, errorInfo) => {
+      console.error('React error caught:', error, errorInfo);
+      setHasError(true);
+      setError(error);
+      setErrorInfo(errorInfo?.componentStack || 'No component stack available');
     };
 
     window.addEventListener('error', handleError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    // Handle React errors
+    const originalConsoleError = console.error;
+    console.error = (...args) => {
+      if (args[0]?.includes?.('React') || args[0]?.includes?.('Warning')) {
+        handleReactError(args[0], { componentStack: args[1] });
+      }
+      originalConsoleError.apply(console, args);
+    };
 
     return () => {
       window.removeEventListener('error', handleError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      console.error = originalConsoleError;
     };
   }, []);
 
@@ -78,6 +100,17 @@ function FastErrorBoundary({ children, fallback }) {
           <p className="text-gray-600 mb-4">
             We're sorry, but there was an error loading the application.
           </p>
+          {import.meta.env.DEV && (
+            <details className="text-left mb-4 p-3 bg-gray-50 rounded text-sm">
+              <summary className="cursor-pointer text-gray-700 font-medium">
+                Error Details (Development)
+              </summary>
+              <pre className="mt-2 text-xs text-red-600 overflow-auto">
+                {error?.message || 'Unknown error'}
+                {errorInfo && `\n\n${errorInfo}`}
+              </pre>
+            </details>
+          )}
           <button
             onClick={() => window.location.reload()}
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"

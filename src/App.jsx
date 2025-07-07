@@ -9,40 +9,50 @@ import { persistor, store } from "@/store/index";
 import Layout from "@/components/organisms/Layout";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
-// Direct imports for core components
 import ProductDetail from "@/components/pages/ProductDetail";
 import Cart from "@/components/pages/Cart";
 import Checkout from "@/components/pages/Checkout";
 import Home from "@/components/pages/Home";
 import { fileCleanupService } from "@/services/api/fileCleanupService";
-// Direct imports for core components
 
-// Lazy loaded components for better performance with error boundaries
-const AdminDashboard = React.lazy(() => import("@/components/pages/AdminDashboard"));
-const ProductManagement = React.lazy(() => import("@/components/pages/ProductManagement"));
-const Analytics = React.lazy(() => import("@/components/pages/Analytics"));
-const FinancialDashboard = React.lazy(() => import("@/components/pages/FinancialDashboard"));
-const POS = React.lazy(() => import("@/components/pages/POS"));
-const PaymentManagement = React.lazy(() => import("@/components/pages/PaymentManagement"));
-const PayrollManagement = React.lazy(() => import("@/components/pages/PayrollManagement"));
-const DeliveryTracking = React.lazy(() => import("@/components/pages/DeliveryTracking"));
-const AIGenerate = React.lazy(() => import("@/components/pages/AIGenerate"));
-const Category = React.lazy(() => import("@/components/pages/Category"));
-const Orders = React.lazy(() => import("@/components/pages/Orders"));
-const OrderTracking = React.lazy(() => import("@/components/pages/OrderTracking"));
-const Account = React.lazy(() => import("@/components/pages/Account"));
+// Lazy load components for better performance
+const AdminDashboard = React.lazy(() => import('@/components/pages/AdminDashboard'))
+const ProductManagement = React.lazy(() => import('@/components/pages/ProductManagement'))
+const Analytics = React.lazy(() => import('@/components/pages/Analytics'))
+const FinancialDashboard = React.lazy(() => import('@/components/pages/FinancialDashboard'))
+const POS = React.lazy(() => import('@/components/pages/POS'))
+const PaymentManagement = React.lazy(() => import('@/components/pages/PaymentManagement'))
+const PayrollManagement = React.lazy(() => import('@/components/pages/PayrollManagement'))
+const DeliveryTracking = React.lazy(() => import('@/components/pages/DeliveryTracking'))
+const AIGenerate = React.lazy(() => import('@/components/pages/AIGenerate'))
+const Category = React.lazy(() => import('@/components/pages/Category'))
+const Orders = React.lazy(() => import('@/components/pages/Orders'))
+const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'))
+const Account = React.lazy(() => import('@/components/pages/Account'))
 
+// Error boundary component for better error handling
+function LazyErrorBoundary({ children, fallback }) {
+  const [hasError, setHasError] = useState(false)
+  const [error, setError] = useState(null)
 
-// Error boundary component for lazy-loaded routes
-const LazyErrorBoundary = ({ children, fallback }) => {
-  return (
-    <Suspense fallback={fallback || <Loading type="page" />}>
-      {children}
-    </Suspense>
-);
-};
+useEffect(() => {
+    const handleError = (event) => {
+      console.error('Lazy component error:', event.error)
+      setHasError(true)
+      setError(event.error)
+    }
+    
+    window.addEventListener('error', handleError)
+    return () => window.removeEventListener('error', handleError)
+  }, [])
 
-// Main App component
+  if (hasError) {
+    return fallback || <Error error={error} />
+  }
+
+  return children
+}
+
 function App() {
   // State management
   const [sdkReady, setSdkReady] = useState(false);
@@ -117,27 +127,33 @@ function App() {
       }
     };
   }, [refreshAuthToken]);
-
-  // Monitor backup status hourly
+// Monitor backup status hourly
   useEffect(() => {
     let mounted = true;
     let backupCheckInterval;
     
     const checkBackupStatus = async () => {
       try {
-        // Import backup service dynamically
+        // Import backup service dynamically with error handling
         const { fileCleanupService } = await import('@/services/api/fileCleanupService');
-        const status = fileCleanupService.getBackupStatus();
+        const status = fileCleanupService?.getBackupStatus?.();
         
-        if (mounted) {
+        if (mounted && status) {
           setBackupStatus({
-            lastBackup: status.lastBackup,
-            nextBackup: status.nextBackup,
-            isRunning: status.isRunning
+            lastBackup: status.lastBackup || null,
+            nextBackup: status.nextBackup || null,
+            isRunning: status.isRunning || false
           });
         }
       } catch (error) {
         console.error('Failed to check backup status:', error);
+        if (mounted) {
+          setBackupStatus({
+            lastBackup: null,
+            nextBackup: null,
+            isRunning: false
+          });
+        }
       }
     };
     
@@ -152,7 +168,6 @@ function App() {
       }
     };
   }, []);
-
 // Optimized SDK monitoring - non-blocking and lightweight
 // SDK Status Effect - Fixed to prevent infinite re-renders
   useEffect(() => {
@@ -163,6 +178,7 @@ function App() {
       if (!mounted || checkCount > 5) return; // Limit checks to prevent performance impact
       
       try {
+        // Call checkSDKStatus directly without dependency
         const status = await checkSDKStatus();
         if (!mounted) return; // Check if still mounted after async operation
         
@@ -180,7 +196,7 @@ function App() {
       } catch (error) {
         if (mounted) {
           console.error('SDK status check error:', error);
-          setSdkError(error.message);
+          setSdkError(error?.message || 'Unknown SDK error');
         }
       }
     };
@@ -201,7 +217,7 @@ function App() {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [checkSDKStatus]); // Now properly memoized, won't cause infinite re-renders
+  }, []); // Removed checkSDKStatus dependency to prevent infinite re-renders
 
 // Lightweight error handling - don't block the app for SDK errors
   useEffect(() => {
@@ -227,6 +243,7 @@ function App() {
   }), [sdkReady, sdkError, checkSDKStatus, tokenStatus, backupStatus, refreshAuthToken]);
 
   // Component preloader for performance
+// Component preloader for performance
   useEffect(() => {
     // Preload likely-to-be-visited components after initial render
     const preloadTimer = setTimeout(() => {
@@ -237,11 +254,15 @@ function App() {
 
     return () => clearTimeout(preloadTimer);
   }, []);
-// Set up React Modal root element for accessibility
-  useEffect(() => {
-    Modal.setAppElement('#root');
-}, []);
 
+  // Set up React Modal root element for accessibility
+  useEffect(() => {
+    try {
+      Modal.setAppElement('#root');
+    } catch (error) {
+      console.warn('Failed to set Modal app element:', error);
+    }
+  }, []);
   return (
     <Provider store={store}>
       <PersistGate loading={<Loading type="page" />} persistor={persistor}>
