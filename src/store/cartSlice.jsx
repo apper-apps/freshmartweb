@@ -1,25 +1,26 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import productService from '@/services/api/productService';
-import { toast } from 'react-toastify';
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { toast } from "react-hot-toast";
+import productService from "@/services/api/productService";
 
+// Initial state
 const initialState = {
   items: [],
   total: 0,
   itemCount: 0,
   isLoading: false,
   error: null,
-  priceValidationCache: {},
   lastValidated: null
 };
 
-// Async thunks for real-time validation
+// Async thunk for validating cart prices
 export const validateCartPrices = createAsyncThunk(
-  'cart/validatePrices',
+  'cart/validateCartPrices',
   async (_, { getState, rejectWithValue }) => {
     try {
       const { cart } = getState();
       const validationResults = [];
-for (const item of cart.items) {
+      
+      for (const item of cart.items) {
         try {
           const productResponse = await productService.getById(item.id);
           const currentProduct = productResponse.data || productResponse;
@@ -55,8 +56,10 @@ for (const item of cart.items) {
   }
 );
 
+// Async thunk for adding to cart with validation
 export const addToCartWithValidation = createAsyncThunk(
-  'cart/addWithValidation',
+  'cart/addToCartWithValidation',
+
 async (productId, { getState, rejectWithValue }) => {
     try {
       const productResponse = await productService.getById(productId);
@@ -149,9 +152,8 @@ const cartSlice = createSlice({
       cartSlice.caseReducers.calculateTotals(state);
     },
     
-    updateQuantity: (state, action) => {
-const { productId, quantity } = action.payload;
-      
+updateQuantity: (state, action) => {
+      const { productId, quantity } = action.payload;
       if (quantity <= 0) {
         state.items = state.items.filter(item => item.id !== productId);
       } else {
@@ -173,7 +175,6 @@ const { productId, quantity } = action.payload;
       state.total = 0;
       state.itemCount = 0;
     },
-    
 calculateTotals: (state) => {
       state.total = state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
       state.itemCount = state.items.reduce((total, item) => total + item.quantity, 0);
@@ -307,6 +308,8 @@ export const {
 } = cartSlice.actions;
 
 // Export async thunks
+export { validateCartPrices, addToCartWithValidation, updateQuantityWithValidation };
+
 // Selectors
 export const selectCartItems = (state) => state.cart.items;
 export const selectCartTotal = (state) => state.cart.total;
