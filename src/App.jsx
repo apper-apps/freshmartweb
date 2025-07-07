@@ -28,6 +28,9 @@ const Category = React.lazy(() => import('@/components/pages/Category'))
 const Orders = React.lazy(() => import('@/components/pages/Orders'))
 const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'))
 const Account = React.lazy(() => import('@/components/pages/Account'))
+const ManageProducts = React.lazy(() => import('@/components/pages/ManageProducts'))
+const AddProduct = React.lazy(() => import('@/components/pages/AddProduct'))
+const EditProduct = React.lazy(() => import('@/components/pages/EditProduct'))
 // Error boundary component for better error handling
 function LazyErrorBoundary({ children, fallback }) {
   const [hasError, setHasError] = useState(false)
@@ -357,9 +360,24 @@ function App() {
                       <AIGenerate />
                     </Suspense>
                   } />
-                  <Route path="admin/payroll" element={
+<Route path="admin/payroll" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <PayrollManagement />
+                    </Suspense>
+                  } />
+                  <Route path="admin/products" element={
+                    <Suspense fallback={<Loading type="page" />}>
+                      <ManageProducts />
+                    </Suspense>
+                  } />
+                  <Route path="admin/products/add" element={
+                    <Suspense fallback={<Loading type="page" />}>
+                      <AddProduct />
+                    </Suspense>
+                  } />
+                  <Route path="admin/products/edit/:id" element={
+                    <Suspense fallback={<Loading type="page" />}>
+                      <EditProduct />
                     </Suspense>
                   } />
                 </Route>
