@@ -1,4 +1,4 @@
-import { products } from '@/services/mockData/products.json';
+import products from '@/services/mockData/products.json';
 
 /**
  * Product Service - Handles all product-related API operations
