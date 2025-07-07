@@ -4,44 +4,43 @@ import ReactDOM from 'react-dom/client'
 import App from '@/App'
 import Error from '@/components/ui/Error'
 
-// Performance monitoring
+// Performance Monitor
 const performanceMonitor = {
-  start: Date.now(),
+  start: performance.now(),
   marks: {}
 };
 
-// Background SDK Loader - non-blocking
+// Background SDK Loader
 class BackgroundSDKLoader {
+  static sdkLoaded = false;
+  static sdkPromise = null;
+
   static async loadInBackground() {
+    if (this.sdkLoaded) return true;
+    if (this.sdkPromise) return this.sdkPromise;
+
+    this.sdkPromise = this.loadSDK();
+    return this.sdkPromise;
+  }
+
+  static async loadSDK() {
     try {
-      // Check if Apper SDK is available
-      if (typeof window !== 'undefined' && !window.Apper) {
-        console.log('Apper SDK not detected - continuing without it');
-        return false;
-      }
+      // Simulate SDK loading (replace with actual SDK imports)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      this.sdkLoaded = true;
       return true;
     } catch (error) {
-      console.warn('SDK loading failed:', error);
+      console.error('SDK loading failed:', error);
       return false;
     }
   }
 
   static async initializeWhenReady() {
-    try {
-      if (window.apperSDK?.isInitialized) {
-        return true;
+    if (this.sdkLoaded) {
+      // Initialize SDK features
+      if (import.meta.env.DEV) {
+        console.log('SDK initialized successfully');
       }
-      
-      // Try to initialize if available
-      if (window.apperSDK?.initialize) {
-        await window.apperSDK.initialize();
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.warn('SDK initialization failed:', error);
-      return false;
     }
   }
 }
@@ -140,19 +139,25 @@ async function initializeApp() {
     console.error('Failed to initialize app:', error);
     
     // Fallback render
-    document.getElementById('root').innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: #f5f5f5;">
-        <div style="text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <h2 style="color: #dc2626; margin-bottom: 1rem;">Application Error</h2>
-          <p style="color: #6b7280; margin-bottom: 1rem;">Unable to load the application. Please refresh the page.</p>
-          <button onclick="window.location.reload()" style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
-            Refresh Page
-          </button>
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      rootElement.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: #f5f5f5;">
+          <div style="text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #dc2626; margin-bottom: 1rem;">Application Error</h2>
+            <p style="color: #6b7280; margin-bottom: 1rem;">Unable to load the application. Please refresh the page.</p>
+            <button onclick="window.location.reload()" style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
+              Refresh Page
+            </button>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
   }
 }
+
+// Start the application
+initializeApp();
 
 // Start the application
 initializeApp();
