@@ -3,7 +3,7 @@ import ApperIcon from '@/components/ApperIcon';
 
 const Error = ({ message = "Something went wrong", onRetry, type = 'general' }) => {
   const getErrorIcon = () => {
-switch (type) {
+    switch (type) {
       case 'network':
         return 'WifiOff';
       case 'not-found':
@@ -12,6 +12,10 @@ switch (type) {
         return 'CreditCard';
       case 'financial':
         return 'TrendingDown';
+      case 'proof-upload':
+        return 'FileImage';
+      case 'file-validation':
+        return 'FileX';
       default:
         return 'AlertCircle';
     }
@@ -27,6 +31,10 @@ const getErrorTitle = () => {
         return 'Payment Issue';
       case 'financial':
         return 'Financial Data Error';
+      case 'proof-upload':
+        return 'Upload Failed';
+      case 'file-validation':
+        return 'Invalid File';
       default:
         return 'Oops! Something went wrong';
     }

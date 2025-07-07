@@ -198,101 +198,139 @@ const Orders = () => {
                   </div>
                   
 {(order.paymentProof || order.paymentProofUrl) && (
-                    <div>
-                      <div className="flex items-center space-x-2 mb-2">
-                        <ApperIcon name="FileText" size={14} className="text-gray-500" />
-                        <span className="text-sm text-gray-600">Payment proof uploaded</span>
-                      </div>
-                      {order.paymentProof && (
-                        <div className="relative group">
-                          <img
-                            className="w-16 h-16 object-cover rounded border cursor-pointer"
-                            src={orderService.getPaymentProofThumbnailUrl(order)}
-                            alt="Payment Proof"
-                            onClick={() => {
-                              const fullImageUrl = orderService.getPaymentProofUrl(order);
-                              const modal = document.createElement('div');
-                              modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                              modal.innerHTML = `
-                                <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden shadow-2xl">
-                                  <div class="relative">
-                                    <div class="flex items-center justify-center min-h-[400px] bg-gray-100">
-                                      <img 
-                                        src="${fullImageUrl}" 
-                                        alt="Payment proof fullscreen" 
-                                        class="max-w-full max-h-[80vh] mx-auto block object-contain"
-                                        style="background: white;"
-                                        onload="this.parentElement.classList.remove('bg-gray-100')"
-                                        onerror="
-                                          let retryCount = parseInt(this.dataset.retryCount || '0');
-                                          if (retryCount < 3) {
-                                            this.dataset.retryCount = retryCount + 1;
-                                            setTimeout(() => {
-                                              this.src = this.src.includes('?') ? this.src + '&retry=' + retryCount : this.src + '?retry=' + retryCount;
-                                            }, 1000 * Math.pow(2, retryCount));
-                                          } else {
-                                            this.style.display = 'none';
-                                            this.parentElement.innerHTML = '<div class=\\'text-center p-8\\'><div class=\\'w-24 h-24 mx-auto mb-4 bg-gray-300 rounded-lg flex items-center justify-center\\'><svg class=\\'w-12 h-12 text-gray-500\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z\\'></path></svg></div><p class=\\'text-gray-600\\'>Payment proof temporarily unavailable</p><p class=\\'text-sm text-gray-500 mt-2\\'>Retried 3 times - please contact support</p></div>';
-                                          }
-                                        "
-                                      />
-                                    </div>
-                                    <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-lg transition-colors z-10 shadow-lg">
-                                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                      </svg>
-                                    </button>
-                                  </div>
-                                  <div class="p-6 bg-gray-50 border-t">
-                                    <div class="text-center">
-                                      <h3 class="text-lg font-semibold text-gray-900 mb-2">Payment Proof - Order #${order.id}</h3>
-                                      <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                        <div>
-                                          <span class="font-medium">Transaction ID:</span>
-                                          <p class="font-mono">${order.transactionId || 'N/A'}</p>
+                      <div>
+                        <div className="flex items-center space-x-2 mb-2">
+                          <ApperIcon name="FileImage" size={14} className="text-gray-500" />
+                          <span className="text-sm text-gray-600">Payment proof uploaded</span>
+                        </div>
+                        {order.paymentProof && (
+                          <div className="relative group">
+                            <div className="w-30 h-30 rounded-lg border-2 border-gray-200 overflow-hidden bg-gray-50">
+                              <img
+                                className="w-30 h-30 object-cover cursor-pointer transition-transform hover:scale-105"
+                                src={orderService.getPaymentProofThumbnailUrl(order)}
+                                alt="Payment Proof Thumbnail"
+                                style={{ width: '120px', height: '120px' }}
+                                loading="lazy"
+                                onClick={() => {
+                                  const fullImageUrl = orderService.getPaymentProofUrl(order);
+                                  const modal = document.createElement('div');
+                                  modal.className = 'fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4';
+                                  modal.innerHTML = `
+                                    <div class="relative max-w-6xl max-h-full bg-white rounded-lg overflow-hidden shadow-2xl">
+                                      <div class="relative">
+                                        <div class="flex items-center justify-center min-h-[500px] bg-gray-100">
+                                          <div class="absolute inset-0 flex items-center justify-center">
+                                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                                          </div>
+                                          <img 
+                                            src="${fullImageUrl}" 
+                                            alt="Payment proof fullscreen" 
+                                            class="max-w-full max-h-[85vh] mx-auto block object-contain relative z-10"
+                                            style="background: white;"
+                                            onload="
+                                              this.parentElement.querySelector('.animate-spin').style.display = 'none';
+                                              this.parentElement.classList.remove('bg-gray-100');
+                                              this.style.opacity = '1';
+                                            "
+                                            style="opacity: 0; transition: opacity 0.3s ease;"
+                                            onerror="
+                                              let retryCount = parseInt(this.dataset.retryCount || '0');
+                                              if (retryCount < 3) {
+                                                this.dataset.retryCount = retryCount + 1;
+                                                setTimeout(() => {
+                                                  this.src = this.src.includes('?') ? this.src + '&retry=' + retryCount : this.src + '?retry=' + retryCount;
+                                                }, 1000 * Math.pow(2, retryCount));
+                                              } else {
+                                                this.parentElement.querySelector('.animate-spin').style.display = 'none';
+                                                this.style.display = 'none';
+                                                this.parentElement.innerHTML = '<div class=\\'text-center p-8\\'><div class=\\'w-24 h-24 mx-auto mb-4 bg-gray-300 rounded-lg flex items-center justify-center\\'><svg class=\\'w-12 h-12 text-gray-500\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z\\'></path></svg></div><p class=\\'text-gray-600\\'>Payment proof temporarily unavailable</p><p class=\\'text-sm text-gray-500 mt-2\\'>Failed to load after 3 attempts</p></div>';
+                                              }
+                                            "
+                                          />
                                         </div>
-                                        <div>
-                                          <span class="font-medium">Payment Method:</span>
-                                          <p class="capitalize">${order.paymentMethod || 'Unknown'}</p>
+                                        <div class="absolute top-4 right-4 flex space-x-2">
+                                          <button class="verify-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors shadow-lg flex items-center space-x-2">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                            </svg>
+                                            <span>Verify</span>
+                                          </button>
+                                          <button class="close-btn bg-black/50 hover:bg-black/70 text-white p-3 rounded-lg transition-colors shadow-lg">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <div class="p-6 bg-gray-50 border-t">
+                                        <div class="text-center">
+                                          <h3 class="text-lg font-semibold text-gray-900 mb-4">Payment Proof - Order #${order.id}</h3>
+                                          <div class="grid grid-cols-2 gap-6 text-sm text-gray-600">
+                                            <div>
+                                              <span class="font-medium text-gray-800">Transaction ID:</span>
+                                              <p class="font-mono text-gray-900 mt-1">${order.transactionId || 'N/A'}</p>
+                                            </div>
+                                            <div>
+                                              <span class="font-medium text-gray-800">Payment Method:</span>
+                                              <p class="capitalize text-gray-900 mt-1">${order.paymentMethod || 'Unknown'}</p>
+                                            </div>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
-                                  </div>
-                                </div>
-                              `;
-                              modal.onclick = (e) => {
-                                if (e.target === modal || e.target.closest('button')) {
-                                  document.body.removeChild(modal);
-                                  document.body.style.overflow = '';
-                                }
-                              };
-                              document.body.style.overflow = 'hidden';
-                              document.body.appendChild(modal);
-                            }}
-                            onError={(e) => {
-                              console.warn('Failed to load payment proof thumbnail:', e.target.src);
-                              let retryCount = parseInt(e.target.dataset.retryCount || '0');
-                              if (retryCount < 2 && !e.target.src.startsWith('data:image/svg+xml')) {
-                                e.target.dataset.retryCount = retryCount + 1;
-                                setTimeout(() => {
-                                  const newUrl = orderService.getPaymentProofThumbnailUrl(order);
-                                  e.target.src = newUrl.includes('?') ? newUrl + '&retry=' + retryCount : newUrl + '?retry=' + retryCount;
-                                }, 1000 * Math.pow(2, retryCount));
-                              } else if (!e.target.src.startsWith('data:image/svg+xml')) {
-                                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-                                e.target.alt = 'Payment proof image not available';
-                              }
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-1 rounded">
-                              <ApperIcon name="ZoomIn" size={16} className="text-white" />
+                                  `;
+                                  
+                                  // Event handlers
+                                  const closeBtn = modal.querySelector('.close-btn');
+                                  const verifyBtn = modal.querySelector('.verify-btn');
+                                  
+                                  const closeModal = () => {
+                                    document.body.removeChild(modal);
+                                    document.body.style.overflow = '';
+                                  };
+                                  
+                                  closeBtn.onclick = closeModal;
+                                  verifyBtn.onclick = () => {
+                                    // Admin verification action
+                                    alert('Verification feature - Admin access required');
+                                  };
+                                  
+                                  modal.onclick = (e) => {
+                                    if (e.target === modal) {
+                                      closeModal();
+                                    }
+                                  };
+                                  
+                                  document.body.style.overflow = 'hidden';
+                                  document.body.appendChild(modal);
+                                }}
+                                onError={(e) => {
+                                  console.warn('Failed to load payment proof thumbnail:', e.target.src);
+                                  let retryCount = parseInt(e.target.dataset.retryCount || '0');
+                                  if (retryCount < 2 && !e.target.src.startsWith('data:image/svg+xml')) {
+                                    e.target.dataset.retryCount = retryCount + 1;
+                                    setTimeout(() => {
+                                      const newUrl = orderService.getPaymentProofThumbnailUrl(order);
+                                      e.target.src = newUrl.includes('?') ? newUrl + '&retry=' + retryCount : newUrl + '?retry=' + retryCount;
+                                    }, 1000 * Math.pow(2, retryCount));
+                                  } else if (!e.target.src.startsWith('data:image/svg+xml')) {
+                                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwIiBoZWlnaHQ9IjEyMCIgdmlld0JveD0iMCAwIDEyMCAxMjAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxMjAiIGhlaWdodD0iMTIwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik01MCA1MEg3MFY3MEg1MFY1MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPHA="';
+                                    e.target.alt = 'Payment proof thumbnail unavailable';
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 rounded-lg flex items-center justify-center">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 px-3 py-1 rounded-full flex items-center space-x-1">
+                                <ApperIcon name="Eye" size={14} className="text-gray-700" />
+                                <span className="text-xs font-medium text-gray-700">View Full</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        )}
+                      </div>
+                    )}
                 </div>
               </div>
             )}

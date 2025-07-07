@@ -99,6 +99,51 @@ const Loading = ({ type = 'products' }) => {
         ))}
       </div>
     </div>
+);
+
+  const ProofSkeleton = () => (
+    <div className="bg-gray-50 rounded-lg p-4 animate-pulse">
+      <div className="flex items-center space-x-4">
+        <div className="bg-gray-200 h-24 w-24 rounded-lg"></div>
+        <div className="flex-1 space-y-2">
+          <div className="bg-gray-200 h-4 rounded w-32"></div>
+          <div className="bg-gray-200 h-3 rounded w-24"></div>
+          <div className="bg-gray-200 h-2 rounded-full w-full"></div>
+          <div className="bg-gray-200 h-6 rounded w-20"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const UploadProgressSkeleton = () => (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 animate-pulse">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="bg-gray-200 h-4 rounded w-40"></div>
+          <div className="bg-gray-200 h-4 rounded w-16"></div>
+        </div>
+        <div className="bg-gray-200 h-2 rounded-full w-full"></div>
+        <div className="flex items-center space-x-2">
+          <div className="bg-gray-200 h-4 w-4 rounded"></div>
+          <div className="bg-gray-200 h-3 rounded w-28"></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const ThumbnailGridSkeleton = () => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      {[...Array(8)].map((_, i) => (
+        <div key={i} className="relative group animate-pulse">
+          <div className="bg-gray-200 h-32 w-32 rounded-lg"></div>
+          <div className="absolute inset-0 bg-gray-300 bg-opacity-20 rounded-lg"></div>
+          <div className="mt-2 space-y-1">
+            <div className="bg-gray-200 h-3 rounded w-24"></div>
+            <div className="bg-gray-200 h-2 rounded w-16"></div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
 
   const renderSkeletons = () => {
@@ -119,7 +164,19 @@ const Loading = ({ type = 'products' }) => {
             ))}
           </div>
         );
-case 'table':
+      case 'proof':
+        return (
+          <div className="space-y-6">
+            {[...Array(3)].map((_, i) => (
+              <ProofSkeleton key={i} />
+            ))}
+          </div>
+        );
+      case 'upload-progress':
+        return <UploadProgressSkeleton />;
+      case 'thumbnails':
+        return <ThumbnailGridSkeleton />;
+      case 'table':
         return <TableSkeleton />;
       case 'dashboard':
         return <DashboardSkeleton />;

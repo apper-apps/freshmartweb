@@ -1382,15 +1382,15 @@ generateFileUrl(fileName) {
 
   // File Storage Service Methods
 // Enhanced File Storage Service Methods with comprehensive security
-  async uploadPaymentProof(file, orderId, transactionId, userId = null) {
+async uploadPaymentProof(file, orderId, transactionId, userId = null) {
     await this.delay(500);
     
     if (!file || !file.name) {
       throw new Error('Invalid file provided');
     }
 
-    // Enhanced file validation with comprehensive security checks
-    const validationResult = await this.validateFileUpload(file);
+    // Enhanced image-only validation for payment proofs
+    const validationResult = await this.validateImageUpload(file);
     if (!validationResult.isValid) {
       throw new Error(validationResult.error);
     }
@@ -1408,18 +1408,20 @@ generateFileUrl(fileName) {
     const currentUserId = userId || 'user_' + Math.random().toString(36).substring(2, 8);
     const uniqueFileName = `payment_proof_${orderId}_${currentUserId}_${timestamp}_${randomString}.${fileExtension}`;
 
-    // Simulate file upload to dedicated secure directory
-    const uploadPath = `./uploads/payment-proofs/${uniqueFileName}`;
-    const fileUrl = `/api/payment-proofs/secure/${uniqueFileName}`;
+    // Simulate S3 upload with pre-signed URLs for admin access
+    const s3Bucket = 'freshmart-payment-proofs';
+    const s3Region = 'us-east-1';
+    const s3BaseUrl = `https://${s3Bucket}.s3.${s3Region}.amazonaws.com`;
+    const fileUrl = `${s3BaseUrl}/payment-proofs/${uniqueFileName}`;
 
-    // Generate thumbnail for images using Sharp.js simulation
-    const thumbnailData = await this.generateSecureThumbnail(file, uniqueFileName);
+    // Generate optimized 120x120 thumbnail using Sharp.js simulation
+    const thumbnailData = await this.generateOptimizedThumbnail(file, uniqueFileName);
 
     const uploadedFile = {
       Id: this.getNextProofId(),
       originalName: file.name,
       fileName: uniqueFileName,
-      filePath: uploadPath,
+      filePath: `payment-proofs/${uniqueFileName}`,
       fileUrl: fileUrl,
       fileType: file.type,
       fileSize: file.size,
@@ -1438,12 +1440,17 @@ generateFileUrl(fileName) {
       checksumMD5: this.generateChecksum(file),
       accessLevel: 'restricted',
       expiresAt: this.calculateExpirationDate(),
+      s3Bucket: s3Bucket,
+      s3Key: `payment-proofs/${uniqueFileName}`,
+      preSignedUrlExpiry: this.calculatePreSignedExpiry(),
       metadata: {
         originalSize: file.size,
-        compressedSize: Math.floor(file.size * 0.8), // Simulate compression
+        compressedSize: Math.floor(file.size * 0.8),
         format: fileExtension,
-        dimensions: file.type.startsWith('image/') ? '1920x1080' : null,
-        colorSpace: file.type.startsWith('image/') ? 'sRGB' : null
+        dimensions: file.type.startsWith('image/') ? await this.extractImageDimensions(file) : null,
+        colorSpace: file.type.startsWith('image/') ? 'sRGB' : null,
+        thumbnailDimensions: '120x120',
+        optimized: true
       }
     };
 
@@ -1456,17 +1463,18 @@ generateFileUrl(fileName) {
   }
 
   // Enhanced file validation with comprehensive checks
-  async validateFileUpload(file) {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
-    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+// Enhanced image-only validation for payment proofs
+  async validateImageUpload(file) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
     const maxSize = 5 * 1024 * 1024; // 5MB
     const minSize = 1024; // 1KB minimum
 
-    // MIME type validation
+    // MIME type validation - Images only
     if (!allowedTypes.includes(file.type)) {
       return {
         isValid: false,
-        error: `Invalid file type: ${file.type}. Only JPEG, PNG, WebP, and PDF files are allowed.`
+        error: `Invalid file type: ${file.type}. Only image files (JPEG, PNG, WebP) are allowed for payment proofs.`
       };
     }
 
@@ -1483,14 +1491,14 @@ generateFileUrl(fileName) {
     if (file.size > maxSize) {
       return {
         isValid: false,
-        error: `File size too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Maximum allowed size is 5MB.`
+        error: `Image size too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Maximum allowed size is 5MB.`
       };
     }
 
     if (file.size < minSize) {
       return {
         isValid: false,
-        error: `File size too small: ${file.size} bytes. Minimum file size is 1KB.`
+        error: `Image file too small: ${file.size} bytes. Minimum file size is 1KB.`
       };
     }
 
@@ -1507,7 +1515,23 @@ generateFileUrl(fileName) {
     if (suspiciousPatterns.some(pattern => file.name.toLowerCase().includes(pattern))) {
       return {
         isValid: false,
-        error: 'Suspicious file detected. Please upload a valid payment proof.'
+        error: 'Suspicious file detected. Please upload a valid image.'
+      };
+    }
+
+    // Additional image validation
+    try {
+      const dimensions = await this.extractImageDimensions(file);
+      if (dimensions.width < 100 || dimensions.height < 100) {
+        return {
+          isValid: false,
+          error: 'Image dimensions too small. Minimum size is 100x100 pixels.'
+        };
+      }
+    } catch (error) {
+      return {
+        isValid: false,
+        error: 'Invalid image file or corrupted image data.'
       };
     }
 
@@ -1537,32 +1561,61 @@ generateFileUrl(fileName) {
   }
 
   // Generate secure thumbnail with 200x200 WebP format
-  async generateSecureThumbnail(file, originalFileName) {
+// Generate optimized 120x120 thumbnail using Sharp.js simulation
+  async generateOptimizedThumbnail(file, originalFileName) {
     if (!file.type.startsWith('image/')) {
-      // For non-images, return default thumbnail
       return {
-        thumbnailUrl: '/assets/icons/document-thumbnail.png',
+        thumbnailUrl: '/assets/icons/image-placeholder.png',
         thumbnailPath: null
       };
     }
 
     await this.delay(300); // Simulate Sharp.js processing time
 
-    // Generate thumbnail filename with WebP format
-    const thumbnailFileName = originalFileName.replace(/\.[^/.]+$/, '_thumb.webp');
-    const thumbnailPath = `./uploads/payment-proofs/thumbnails/${thumbnailFileName}`;
-    const thumbnailUrl = `/api/payment-proofs/thumbnails/${thumbnailFileName}`;
+    // Generate thumbnail filename with WebP format for optimal compression
+    const thumbnailFileName = originalFileName.replace(/\.[^/.]+$/, '_thumb_120x120.webp');
+    const s3Bucket = 'freshmart-payment-proofs';
+    const s3Region = 'us-east-1';
+    const s3BaseUrl = `https://${s3Bucket}.s3.${s3Region}.amazonaws.com`;
+    const thumbnailPath = `payment-proofs/thumbnails/${thumbnailFileName}`;
+    const thumbnailUrl = `${s3BaseUrl}/${thumbnailPath}`;
 
-    // Simulate Sharp.js processing
+    // Simulate Sharp.js processing with optimized settings
     return {
       thumbnailUrl: thumbnailUrl,
       thumbnailPath: thumbnailPath,
-      dimensions: '200x200',
+      dimensions: '120x120',
       format: 'webp',
-      quality: 85,
-      fileSize: Math.floor(file.size * 0.1), // Thumbnails are ~10% of original size
-      generatedAt: new Date().toISOString()
+      quality: 80, // Optimized for fast loading
+      fileSize: Math.floor(file.size * 0.05), // Thumbnails are ~5% of original size
+      generatedAt: new Date().toISOString(),
+      optimizedForSpeed: true,
+      targetLoadTime: '<2s'
     };
+  }
+
+  // Extract image dimensions for validation
+  async extractImageDimensions(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = function() {
+        resolve({
+          width: this.width,
+          height: this.height
+        });
+      };
+      img.onerror = function() {
+        reject(new Error('Failed to load image for dimension extraction'));
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  // Calculate pre-signed URL expiry (5 minutes for admin access)
+  calculatePreSignedExpiry() {
+    const expiryDate = new Date();
+    expiryDate.setMinutes(expiryDate.getMinutes() + 5);
+    return expiryDate.toISOString();
   }
 
   // Generate file checksum for integrity verification
@@ -1598,17 +1651,18 @@ generateFileUrl(fileName) {
     console.log('File upload audit log:', logEntry);
   }
 
-async servePaymentProof(fileName, userRole = 'customer', sessionToken = null, clientIP = null) {
+// Enhanced admin access with pre-signed S3 URLs and 5-minute expiry
+  async servePaymentProofForAdmin(fileName, userRole = 'admin', sessionToken = null, clientIP = null) {
     await this.delay(200);
     
-    // Enhanced authentication and authorization
-    if (!this.validateSecureAccess(userRole, sessionToken)) {
-      throw new Error('Authentication required to access payment proof');
+    // Enhanced authentication and authorization for admin access
+    if (!this.validateAdminAccess(userRole, sessionToken)) {
+      throw new Error('Admin authentication required to access payment proof');
     }
     
-    // Validate user has permission to access file with detailed RBAC
-    if (!this.hasSecureFileAccess(userRole)) {
-      throw new Error('Insufficient permissions to access payment proof');
+    // Validate admin has permission to access file with detailed RBAC
+    if (!this.hasAdminFileAccess(userRole)) {
+      throw new Error('Insufficient admin permissions to access payment proof');
     }
 
     const proof = this.paymentProofs.find(p => p.fileName === fileName);
@@ -1632,10 +1686,10 @@ async servePaymentProof(fileName, userRole = 'customer', sessionToken = null, cl
       throw new Error('File integrity check failed');
     }
 
-    // Check file existence with enhanced validation
-    const fileExists = await this.verifyFileExists(proof);
+    // Check S3 file existence with enhanced validation
+    const fileExists = await this.verifyS3FileExists(proof);
     if (!fileExists.exists) {
-      throw new Error(`File not found on storage: ${fileExists.reason}`);
+      throw new Error(`File not found on S3 storage: ${fileExists.reason}`);
     }
 
     // Perform real-time security scan
@@ -1644,12 +1698,16 @@ async servePaymentProof(fileName, userRole = 'customer', sessionToken = null, cl
       throw new Error('File access denied due to security concerns');
     }
 
-    // Log access for audit trail
-    await this.logFileAccess(proof, userRole, clientIP);
+    // Generate pre-signed URLs with 5-minute expiry
+    const preSignedUrls = await this.generatePreSignedUrls(proof);
 
-    // Return enhanced file data with comprehensive security headers
+    // Log admin access for audit trail
+    await this.logAdminFileAccess(proof, userRole, clientIP);
+
+    // Return enhanced file data with pre-signed URLs and security headers
     return {
       fileName: proof.fileName,
+      originalName: proof.originalName,
       filePath: proof.filePath,
       mimeType: proof.mimeType,
       fileSize: proof.fileSize,
@@ -1657,13 +1715,24 @@ async servePaymentProof(fileName, userRole = 'customer', sessionToken = null, cl
       isValid: proof.isValid,
       isSecure: proof.isSecure,
       checksumMD5: proof.checksumMD5,
+      s3Bucket: proof.s3Bucket,
+      s3Key: proof.s3Key,
+      
+      // Pre-signed URLs with 5-minute expiry
+      preSignedUrls: {
+        fullImage: preSignedUrls.fullImage,
+        thumbnail: preSignedUrls.thumbnail,
+        expiresAt: preSignedUrls.expiresAt,
+        expiresIn: '5 minutes'
+      },
+      
       contentDisposition: `inline; filename="${proof.originalName}"`,
       cacheControl: 'private, no-cache, no-store, must-revalidate',
       securityHeaders: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline';",
+        'Content-Security-Policy': "default-src 'none'; img-src 'self' data: https://*.amazonaws.com; style-src 'unsafe-inline';",
         'X-XSS-Protection': '1; mode=block',
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
         'X-Download-Options': 'noopen',
@@ -1672,10 +1741,90 @@ async servePaymentProof(fileName, userRole = 'customer', sessionToken = null, cl
       accessMetadata: {
         accessedBy: userRole,
         accessedAt: new Date().toISOString(),
-        accessMethod: 'secure_api',
-        sessionId: sessionToken?.substring(0, 8) + '...' || 'anonymous'
+        accessMethod: 'admin_api_with_presigned_urls',
+        sessionId: sessionToken?.substring(0, 8) + '...' || 'admin_session',
+        ipAddress: clientIP || 'unknown'
       }
     };
+  }
+
+  // Generate pre-signed URLs for S3 access with 5-minute expiry
+  async generatePreSignedUrls(proof) {
+    await this.delay(100);
+    
+    const expiryTime = new Date();
+    expiryTime.setMinutes(expiryTime.getMinutes() + 5);
+    
+    const baseParams = `X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Expires=300&X-Amz-Date=${new Date().toISOString().replace(/[:\-]|\.\d{3}/g, '')}`;
+    
+    return {
+      fullImage: `${proof.fileUrl}?${baseParams}&X-Amz-SignedHeaders=host&X-Amz-Signature=mock_signature_full`,
+      thumbnail: `${proof.thumbnailUrl}?${baseParams}&X-Amz-SignedHeaders=host&X-Amz-Signature=mock_signature_thumb`,
+      expiresAt: expiryTime.toISOString(),
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  // Enhanced admin access validation
+  validateAdminAccess(userRole, sessionToken) {
+    const adminRoles = ['admin', 'finance_manager', 'support_admin'];
+    return adminRoles.includes(userRole) && (sessionToken || userRole === 'admin'); // Admin can bypass token for mock
+  }
+
+  // Enhanced admin RBAC for file access
+  hasAdminFileAccess(userRole) {
+    const adminFileAccessMatrix = {
+      'admin': true,
+      'finance_manager': true,
+      'support_admin': true,
+      'support_manager': false,
+      'customer': false
+    };
+    
+    return adminFileAccessMatrix[userRole] || false;
+  }
+
+  // Verify S3 file existence
+  async verifyS3FileExists(proof) {
+    await this.delay(150);
+    
+    // Simulate S3 HeadObject operation
+    const scenarios = [
+      { exists: true, reason: 's3_file_accessible' },
+      { exists: false, reason: 's3_file_not_found' },
+      { exists: false, reason: 's3_access_denied' },
+      { exists: false, reason: 's3_service_unavailable' }
+    ];
+    
+    // 97% success rate for S3 operations
+    const randomIndex = Math.random();
+    if (randomIndex > 0.03) {
+      return scenarios[0]; // Success
+    } else {
+      return scenarios[Math.floor(Math.random() * 3) + 1]; // Random failure
+    }
+  }
+
+  // Log admin file access for comprehensive audit trail
+  async logAdminFileAccess(proof, userRole, clientIP) {
+    const accessLog = {
+      timestamp: new Date().toISOString(),
+      action: 'admin_file_access',
+      fileId: proof.Id,
+      fileName: proof.fileName,
+      orderId: proof.orderId,
+      accessedBy: userRole,
+      clientIP: clientIP || '127.0.0.1',
+      userAgent: 'Admin-Dashboard',
+      accessType: 'presigned_url_generation',
+      s3Bucket: proof.s3Bucket,
+      s3Key: proof.s3Key,
+      successful: true,
+      securityLevel: 'high'
+    };
+    
+    // In real implementation, send to audit logging service
+    console.log('Admin file access audit log:', accessLog);
   }
 
   // Enhanced secure access validation

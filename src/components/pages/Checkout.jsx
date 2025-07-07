@@ -85,49 +85,88 @@ const { cart, clearCart } = useCart()
     }
   }
 
-function handleFileUpload(e) {
+const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadStatus, setUploadStatus] = useState('idle') // idle, uploading, success, error
+
+  function handleFileUpload(e) {
     const file = e.target.files[0]
     if (file) {
-      // Comprehensive file validation
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf']
-      const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
+      // Enhanced image-only validation for payment proofs
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
+      const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp']
       
-      // Check MIME type
+      // Check MIME type - Images only for payment proofs
       if (!allowedTypes.includes(file.type)) {
-        toast.error('Please upload a valid file (JPEG, PNG, WebP, PDF)')
+        toast.error('Please upload an image file (JPEG, PNG, WebP)')
         return
       }
       
       // Check file extension as additional security
       const fileExtension = file.name.split('.').pop().toLowerCase()
       if (!allowedExtensions.includes(fileExtension)) {
-        toast.error('File extension not allowed')
+        toast.error('Invalid image file extension')
         return
       }
       
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size should be less than 5MB')
+        toast.error('Image size should be less than 5MB')
         return
       }
       
       // Check for minimum file size (1KB)
       if (file.size < 1024) {
-        toast.error('File is too small. Please upload a valid file')
+        toast.error('Image file is too small. Please upload a valid image')
         return
       }
-      
-      // Clear any previous errors
-      if (errors.paymentProof) {
-        setErrors(prev => ({
-          ...prev,
-          paymentProof: ''
-        }))
+
+      // Enhanced image validation
+      const img = new Image()
+      img.onload = function() {
+        // Check minimum dimensions
+        if (this.width < 100 || this.height < 100) {
+          toast.error('Image must be at least 100x100 pixels')
+          return
+        }
+        
+        // Start upload simulation with progress
+        startUploadProgress(file)
       }
       
-      setPaymentProof(file)
-      toast.success('Payment proof uploaded successfully')
+      img.onerror = function() {
+        toast.error('Invalid image file. Please upload a valid image.')
+      }
+      
+      img.src = URL.createObjectURL(file)
     }
+  }
+
+  function startUploadProgress(file) {
+    setUploadStatus('uploading')
+    setUploadProgress(0)
+    
+    // Simulate real-time upload progress
+    const interval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(interval)
+          setUploadStatus('success')
+          setPaymentProof(file)
+          
+          // Clear any previous errors
+          if (errors.paymentProof) {
+            setErrors(prev => ({
+              ...prev,
+              paymentProof: ''
+            }))
+          }
+          
+          toast.success('Payment proof uploaded successfully')
+          return 100
+        }
+        return prev + Math.random() * 15 + 5 // Random progress increments
+      })
+    }, 200)
   }
 
   function removePaymentProof() {
@@ -744,32 +783,54 @@ if (paymentMethod === 'card') {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Upload Payment Proof *
                       </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-colors">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileUpload}
-                          className="hidden"
-                          id="payment-proof-upload"
-                        />
-                        <label
-                          htmlFor="payment-proof-upload"
-                          className="cursor-pointer flex flex-col items-center space-y-2"
-                        >
-                          <ApperIcon name="Upload" size={32} className="text-gray-400" />
-                          <div>
-                            <span className="text-primary font-medium">Click to upload</span>
-                            <span className="text-gray-500"> or drag and drop</span>
+{uploadStatus === 'uploading' ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-blue-800">Uploading payment proof...</span>
+                              <span className="text-sm text-blue-600">{Math.round(uploadProgress)}%</span>
+                            </div>
+                            <div className="w-full bg-blue-200 rounded-full h-2">
+                              <div 
+                                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                style={{ width: `${uploadProgress}%` }}
+                              ></div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                              <span className="text-xs text-blue-600">Processing image...</span>
+                            </div>
                           </div>
-                          <span className="text-xs text-gray-400">PNG, JPG, WebP up to 5MB</span>
-                        </label>
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-colors">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                            id="payment-proof-upload"
+                            disabled={uploadStatus === 'uploading'}
+                          />
+                          <label
+                            htmlFor="payment-proof-upload"
+                            className={`cursor-pointer flex flex-col items-center space-y-2 ${uploadStatus === 'uploading' ? 'opacity-50 pointer-events-none' : ''}`}
+                          >
+                            <ApperIcon name="Upload" size={32} className="text-gray-400" />
+                            <div>
+                              <span className="text-primary font-medium">Click to upload image</span>
+                              <span className="text-gray-500"> or drag and drop</span>
+                            </div>
+                            <span className="text-xs text-gray-400">PNG, JPG, WebP up to 5MB</span>
+                          </label>
+                        </div>
+                      )}
                       {errors.paymentProof && (
                         <p className="mt-1 text-sm text-red-600">{errors.paymentProof}</p>
                       )}
                     </div>
                     
-                    {paymentProof && (
+                    {paymentProof && uploadStatus === 'success' && (
                       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex items-center space-x-3">
@@ -781,7 +842,7 @@ if (paymentMethod === 'card') {
                                 {paymentProof.name}
                               </p>
                               <p className="text-xs text-green-600">
-                                {(paymentProof.size / 1024 / 1024).toFixed(2)} MB
+                                {(paymentProof.size / 1024 / 1024).toFixed(2)} MB • Image verified
                               </p>
                             </div>
                           </div>
@@ -793,15 +854,13 @@ if (paymentMethod === 'card') {
                             <ApperIcon name="X" size={16} />
                           </button>
                         </div>
-                        {paymentProof && (
-                          <div className="mt-3">
-                            <img
-                              src={URL.createObjectURL(paymentProof)}
-                              alt="Payment proof preview"
-                              className="max-w-full h-32 object-cover rounded-lg border border-green-200"
-                            />
-                          </div>
-                        )}
+                        <div className="mt-3">
+                          <img
+                            src={URL.createObjectURL(paymentProof)}
+                            alt="Payment proof preview"
+                            className="w-32 h-32 object-cover rounded-lg border border-green-200"
+                          />
+                        </div>
                       </div>
                     )}
                     
