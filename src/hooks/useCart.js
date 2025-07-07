@@ -1,4 +1,5 @@
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from "react-redux";
+import React from "react";
 import { 
   addToCart as addToCartAction, 
   removeFromCart as removeFromCartAction, 
@@ -13,60 +14,97 @@ import {
   selectProductQuantityInCart
 } from '@/store/cartSlice';
 
-export const useCart = () => {
+/**
+ * Custom hook for cart operations
+ * Provides cart state and actions with proper error handling
+ */
+const useCart = () => {
   const dispatch = useDispatch();
   
-  // Selectors
-  const cart = useSelector(selectCartItems);
-  const cartTotal = useSelector(selectCartTotal);
-  const cartCount = useSelector(selectCartItemCount);
+  // Cart state selectors - called at hook level
+  const items = useSelector(selectCartItems);
+  const total = useSelector(selectCartTotal);
+  const itemCount = useSelector(selectCartItemCount);
   const isLoading = useSelector(selectCartLoading);
-
-  // Actions with loading states
-  const addToCart = (product) => {
-    dispatch(setLoading(true));
-    setTimeout(() => {
-      dispatch(addToCartAction(product));
-      dispatch(setLoading(false));
-    }, 200);
-  };
-
-  const removeFromCart = (productId) => {
-    dispatch(removeFromCartAction(productId));
-  };
-
-  const updateQuantity = (productId, quantity) => {
-    dispatch(updateQuantityAction({ productId, quantity }));
-  };
-
-  const clearCart = () => {
-    dispatch(clearCartAction());
-  };
-
-  // Helper functions that use selectors
-  const getCartTotal = () => cartTotal;
-  const getCartCount = () => cartCount;
-  const getCartItems = () => cart;
   
+  // Cart actions with error handling
+  const addToCart = async (product) => {
+    try {
+      dispatch(setLoading(true));
+      await dispatch(addToCartAction(product));
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+  
+  const removeFromCart = async (productId) => {
+    try {
+      dispatch(setLoading(true));
+      await dispatch(removeFromCartAction(productId));
+    } catch (error) {
+      console.error('Error removing from cart:', error);
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+  
+  const updateQuantity = async (productId, quantity) => {
+    try {
+      dispatch(setLoading(true));
+      await dispatch(updateQuantityAction({ productId, quantity }));
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+  
+  const clearCart = async () => {
+    try {
+      dispatch(setLoading(true));
+      await dispatch(clearCartAction());
+    } catch (error) {
+      console.error('Error clearing cart:', error);
+      throw error;
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };
+  
+  // Utility functions that use pre-computed values
   const isProductInCart = (productId) => {
-    return useSelector(selectIsProductInCart(productId));
+    if (!productId) return false;
+    return items.some(item => item.id === productId);
   };
   
   const getProductQuantityInCart = (productId) => {
-    return useSelector(selectProductQuantityInCart(productId));
+    if (!productId) return 0;
+    const item = items.find(item => item.id === productId);
+    return item ? item.quantity : 0;
   };
 
   return {
-    cart,
+    // State
+    items,
+    total,
+    itemCount,
+    isLoading,
+    
+    // Actions
     addToCart,
     removeFromCart,
     updateQuantity,
     clearCart,
-    getCartTotal,
-    getCartCount,
-    getCartItems,
+    
+    // Utilities
     isProductInCart,
-    getProductQuantityInCart,
-    isLoading
+    getProductQuantityInCart
   };
 };
+
+export default useCart;
