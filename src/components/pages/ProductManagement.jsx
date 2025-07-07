@@ -9,7 +9,7 @@ import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Category from "@/components/pages/Category";
-import { productService } from "@/services/api/productService";
+import productService from "@/services/api/productService";
 const ProductManagement = () => {
   // State management with proper initialization
   const [products, setProducts] = useState([]);
