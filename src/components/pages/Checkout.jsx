@@ -88,15 +88,32 @@ const { cart, clearCart } = useCart()
 function handleFileUpload(e) {
     const file = e.target.files[0]
     if (file) {
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
+      // Comprehensive file validation
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf']
+      const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf']
+      
+      // Check MIME type
       if (!allowedTypes.includes(file.type)) {
-        toast.error('Please upload a valid image file (JPEG, PNG, WebP)')
+        toast.error('Please upload a valid file (JPEG, PNG, WebP, PDF)')
         return
       }
+      
+      // Check file extension as additional security
+      const fileExtension = file.name.split('.').pop().toLowerCase()
+      if (!allowedExtensions.includes(fileExtension)) {
+        toast.error('File extension not allowed')
+        return
+      }
+      
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
         toast.error('File size should be less than 5MB')
+        return
+      }
+      
+      // Check for minimum file size (1KB)
+      if (file.size < 1024) {
+        toast.error('File is too small. Please upload a valid file')
         return
       }
       
@@ -179,13 +196,32 @@ function handleFileUpload(e) {
       throw error
     }
   }
-// Convert file to base64 for safe serialization
+// Convert file to base64 for safe serialization with error handling
   async function convertFileToBase64(file) {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
+      try {
+        const reader = new FileReader()
+        reader.onload = () => {
+          try {
+            const result = reader.result
+            // Validate the result
+            if (!result || typeof result !== 'string') {
+              reject(new Error('Invalid file conversion result'))
+              return
+            }
+            resolve(result)
+          } catch (error) {
+            reject(new Error('Failed to process file data'))
+          }
+        }
+        reader.onerror = () => reject(new Error('Failed to read file'))
+        reader.onabort = () => reject(new Error('File reading was aborted'))
+        
+        // Start reading the file
+        reader.readAsDataURL(file)
+      } catch (error) {
+        reject(new Error('Failed to initialize file reader'))
+      }
     })
   }
 
@@ -255,11 +291,14 @@ function handleFileUpload(e) {
         total: validatedTotal,
         paymentMethod,
         paymentResult,
-        paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
+paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
         paymentProof: paymentProofData ? {
           fileName: paymentProof?.name || null,
           fileSize: paymentProof?.size || 0,
-          uploadedAt: new Date().toISOString()
+          fileType: paymentProof?.type || 'unknown',
+          originalName: paymentProof?.name || null,
+          uploadedAt: new Date().toISOString(),
+          base64Data: paymentProofData
         } : null,
         transactionId: transactionId || paymentResult?.transactionId || null,
         deliveryAddress: {

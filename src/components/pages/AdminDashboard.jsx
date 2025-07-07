@@ -150,7 +150,7 @@ const handleWalletAction = async (action, amount = 0) => {
     { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500' },
     { label: 'Financial Dashboard', path: '/admin/financial-dashboard', icon: 'DollarSign', color: 'from-emerald-500 to-teal-500' },
     { label: 'AI Generate', path: '/admin/ai-generate', icon: 'Brain', color: 'from-purple-500 to-indigo-500' },
-    { label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500' },
+{ label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500', badge: stats?.pendingVerifications || 0 },
     { label: 'Payment Management', path: '/admin/payments', icon: 'CreditCard', color: 'from-teal-500 to-cyan-500' },
     { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500' },
     { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500' }
@@ -167,7 +167,7 @@ const handleWalletAction = async (action, amount = 0) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-xl">
 <div className="flex items-center justify-between">
-<div>
+            <div>
               <p className="text-green-100 text-sm">Wallet Balance</p>
               <p className="text-2xl font-bold">Rs. {(stats?.walletBalance || 0).toLocaleString()}</p>
             </div>
@@ -233,12 +233,12 @@ const handleWalletAction = async (action, amount = 0) => {
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {quickActions.map((action) => (
-              <Link
+<Link
                 key={action.path}
                 to={action.path}
                 className="group"
               >
-                <div className="p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
+                <div className="p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200 relative">
                   <div className="flex items-center space-x-3">
                     <div className={`bg-gradient-to-r ${action.color} p-2 rounded-lg`}>
                       <ApperIcon name={action.icon} size={20} className="text-white" />
@@ -246,6 +246,11 @@ const handleWalletAction = async (action, amount = 0) => {
                     <span className="font-medium text-gray-900 group-hover:text-primary transition-colors">
                       {action.label}
                     </span>
+                    {action.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                        {action.badge > 99 ? '99+' : action.badge}
+                      </span>
+                    )}
                   </div>
                 </div>
               </Link>
@@ -290,7 +295,94 @@ const handleWalletAction = async (action, amount = 0) => {
           )}
         </div>
       </div>
-{/* Wallet Management */}
+{/* Payment Verification Queue */}
+      <div className="card p-6 mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-gray-900">Payment Verification Queue</h2>
+          <div className="flex items-center space-x-2">
+            <span className="bg-orange-100 text-orange-800 text-sm font-medium px-2.5 py-0.5 rounded-full">
+              {stats?.pendingVerifications || 0} pending
+            </span>
+            <Button
+              onClick={() => navigate('/admin/payments?tab=verification')}
+              variant="outline"
+              className="text-sm"
+            >
+              View All
+            </Button>
+          </div>
+        </div>
+
+        {stats?.pendingVerifications === 0 ? (
+          <div className="text-center py-8">
+            <ApperIcon name="Shield" size={48} className="text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No pending payment verifications</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Mock verification items with thumbnails */}
+            {Array.from({ length: Math.min(stats?.pendingVerifications || 0, 6) }, (_, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-orange-300 transition-colors">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0 relative">
+                    <div className="w-16 h-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                      {Math.random() > 0.3 ? (
+                        <img
+                          src={`https://picsum.photos/64/64?random=${index}`}
+                          alt="Payment proof"
+                          className="w-full h-full object-cover rounded"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className="w-full h-full flex items-center justify-center" style={{display: Math.random() > 0.3 ? 'none' : 'flex'}}>
+                        <ApperIcon name="FileImage" size={20} className="text-gray-400" />
+                      </div>
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center">
+                      <span className="text-xs text-white font-bold">!</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                        Order #{1000 + index}
+                      </h4>
+                      <span className="text-xs text-gray-500">
+                        {Math.floor(Math.random() * 24)}h ago
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Rs. {(Math.random() * 5000 + 500).toFixed(0).toLocaleString()}
+                    </p>
+                    <div className="flex items-center mt-2 space-x-2">
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        ['jazzcash', 'easypaisa', 'bank'][Math.floor(Math.random() * 3)] === 'bank' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {['JazzCash', 'EasyPaisa', 'Bank Transfer'][Math.floor(Math.random() * 3)]}
+                      </span>
+                    </div>
+                    <div className="flex space-x-2 mt-3">
+                      <button className="flex-1 bg-green-50 text-green-700 text-xs py-1 px-2 rounded hover:bg-green-100 transition-colors">
+                        Verify
+                      </button>
+                      <button className="flex-1 bg-red-50 text-red-700 text-xs py-1 px-2 rounded hover:bg-red-100 transition-colors">
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Wallet Management */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         {/* Wallet Actions */}
         <div className="card p-6">
@@ -332,7 +424,7 @@ const handleWalletAction = async (action, amount = 0) => {
               <p className="text-gray-600">No revenue data</p>
             </div>
           ) : (
-<div className="space-y-3">
+            <div className="space-y-3">
               {revenueBreakdown.map((item, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
@@ -361,7 +453,7 @@ const handleWalletAction = async (action, amount = 0) => {
             </div>
           ) : (
             <div className="space-y-3">
-{walletTransactions.map((transaction) => (
+              {walletTransactions.map((transaction) => (
                 <div key={transaction?.id || transaction?.Id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 rounded-lg ${
@@ -378,7 +470,7 @@ const handleWalletAction = async (action, amount = 0) => {
                         } 
                       />
                     </div>
-<div>
+                    <div>
                       <p className="font-medium text-gray-900 capitalize">{transaction?.type || 'Unknown'}</p>
                       <p className="text-sm text-gray-600">
                         {format(new Date(transaction?.timestamp || new Date()), 'MMM dd, hh:mm a')}

@@ -1,5 +1,5 @@
 class PaymentService {
-constructor() {
+  constructor() {
     this.transactions = [];
     this.walletBalance = 25000; // Initial wallet balance
     this.walletTransactions = [];
@@ -249,7 +249,7 @@ transaction.verificationData = verificationData;
   }
 async getAvailablePaymentMethods() {
     await this.delay(200);
-    return [...this.paymentGateways];
+    return [...this.paymentGateways].filter(gateway => gateway.enabled);
   }
 
   // Transaction History
@@ -1022,15 +1022,160 @@ delay(ms = 300) {
     return dueDate.toISOString();
   }
 
-  generateFileUrl(fileName) {
+generateFileUrl(fileName) {
     // Simulate file URL generation
     return `https://storage.example.com/proofs/${Date.now()}-${fileName}`;
+  }
+
+  // File Storage Service Methods
+  async uploadPaymentProof(file, orderId, transactionId) {
+    await this.delay(500);
+    
+    if (!file || !file.name) {
+      throw new Error('Invalid file provided');
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Invalid file type. Only JPEG, PNG, WebP, and PDF files are allowed');
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('File size must be less than 5MB');
+    }
+
+    // Generate unique filename with timestamp and random string
+    const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    const uniqueFileName = `payment_proof_${orderId}_${transactionId}_${timestamp}_${randomString}.${fileExtension}`;
+
+    // Simulate file upload to dedicated directory
+    const uploadPath = `./uploads/payment-proofs/${uniqueFileName}`;
+    const fileUrl = `/api/payment-proofs/${uniqueFileName}`;
+
+    const uploadedFile = {
+      Id: this.getNextProofId(),
+      originalName: file.name,
+      fileName: uniqueFileName,
+      filePath: uploadPath,
+      fileUrl: fileUrl,
+      fileType: file.type,
+      fileSize: file.size,
+      orderId: orderId,
+      transactionId: transactionId,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: 'customer',
+      status: 'uploaded',
+      thumbnailUrl: this.generateThumbnailUrl(uniqueFileName, file.type),
+      mimeType: file.type,
+      isValid: true
+    };
+
+    this.paymentProofs.push(uploadedFile);
+    return { ...uploadedFile };
+  }
+
+  async servePaymentProof(fileName, userRole = 'customer') {
+    await this.delay(200);
+    
+    // Validate user has permission to access file
+    if (userRole !== 'admin' && userRole !== 'finance_manager') {
+      throw new Error('Insufficient permissions to access payment proof');
+    }
+
+    const proof = this.paymentProofs.find(p => p.fileName === fileName);
+    if (!proof) {
+      throw new Error('Payment proof not found');
+    }
+
+    // Check file existence (simulated)
+    const fileExists = Math.random() > 0.05; // 95% success rate
+    if (!fileExists) {
+      throw new Error('File not found on storage');
+    }
+
+    // Return file data with proper MIME type
+    return {
+      fileName: proof.fileName,
+      filePath: proof.filePath,
+      mimeType: proof.mimeType,
+      fileSize: proof.fileSize,
+      lastModified: proof.uploadedAt,
+      isValid: proof.isValid,
+      contentDisposition: `inline; filename="${proof.originalName}"`,
+      cacheControl: 'private, no-cache',
+      securityHeaders: {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
+      }
+    };
+  }
+
+  generateThumbnailUrl(fileName, mimeType) {
+    // Generate thumbnail URL based on file type
+    if (mimeType.startsWith('image/')) {
+      return `/api/payment-proofs/thumbnails/${fileName}`;
+    }
+    // Return default PDF icon for PDF files
+    return '/assets/icons/pdf-thumbnail.png';
+  }
+
+  async getPaymentProofsByOrder(orderId) {
+    await this.delay(200);
+    return this.paymentProofs
+      .filter(proof => proof.orderId === orderId)
+      .map(proof => ({ ...proof }));
+  }
+
+  async validatePaymentProofAccess(fileName, userRole, userId = null) {
+    await this.delay(100);
+    
+    const proof = this.paymentProofs.find(p => p.fileName === fileName);
+    if (!proof) {
+      return { valid: false, error: 'Payment proof not found' };
+    }
+
+    // Admin and finance managers have full access
+    if (userRole === 'admin' || userRole === 'finance_manager') {
+      return { valid: true, proof: { ...proof } };
+    }
+
+    // Customers can only access their own files (additional validation would be needed)
+    if (userRole === 'customer') {
+      return { valid: false, error: 'Insufficient permissions' };
+    }
+
+    return { valid: false, error: 'Invalid user role' };
+  }
+
+  async deletePaymentProof(fileName) {
+    await this.delay(300);
+    
+    if (!this.validateFinanceManagerRole()) {
+      throw new Error('Insufficient permissions. Finance manager role required.');
+    }
+
+    const index = this.paymentProofs.findIndex(p => p.fileName === fileName);
+    if (index === -1) {
+      throw new Error('Payment proof not found');
+    }
+
+    // Mark as deleted instead of removing (for audit trail)
+    this.paymentProofs[index].status = 'deleted';
+    this.paymentProofs[index].deletedAt = new Date().toISOString();
+    this.paymentProofs[index].deletedBy = this.currentUserRole;
+
+    return { success: true };
+  }
 }
 
   // Recurring Payment Automation Methods
   async createRecurringPayment(recurringData) {
     await this.delay(500);
-    
     if (!this.validateFinanceManagerRole()) {
       throw new Error('Insufficient permissions. Finance manager role required.');
     }
