@@ -38,9 +38,24 @@ const loadDashboardData = async () => {
     setError(null);
     
     try {
-      // Load products and check for low stock
-      const productsResponse = await getAllProducts();
-      const orders = await orderService.getAll();
+      // Concurrent data loading for improved performance
+      const [
+        productsResponse,
+        orders,
+        walletBalance,
+        walletTransactionsData,
+        monthlyRevenue,
+        pendingVerifications,
+        revenueByMethodData
+      ] = await Promise.all([
+        getAllProducts(),
+        orderService.getAll(),
+        paymentService.getWalletBalance(),
+        paymentService.getWalletTransactions(),
+        orderService.getMonthlyRevenue(),
+        orderService.getPendingVerifications(),
+        orderService.getRevenueByPaymentMethod()
+      ]);
       
       // Extract products array from response and ensure it's an array
       const products = productsResponse?.data || [];
@@ -62,15 +77,8 @@ const loadDashboardData = async () => {
       const todayRevenueAmount = todayOrdersData.reduce((sum, order) => sum + (order?.total || 0), 0);
       setTodayRevenue(todayRevenueAmount || 0);
 
-      // Get wallet data with safe defaults
-      const walletBalance = await paymentService.getWalletBalance();
-      const walletTransactionsData = await paymentService.getWalletTransactions();
+      // Set wallet data with safe defaults
       setWalletTransactions(walletTransactionsData || []);
-
-      // Get monthly revenue with safe defaults
-      const monthlyRevenue = await orderService.getMonthlyRevenue();
-      const pendingVerifications = await orderService.getPendingVerifications();
-      const revenueByMethodData = await orderService.getRevenueByPaymentMethod();
       setRevenueByMethod(revenueByMethodData || {});
       
       // Calculate revenue breakdown with safe defaults

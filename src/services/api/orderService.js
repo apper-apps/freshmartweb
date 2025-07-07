@@ -8,8 +8,8 @@ class OrderService {
     this.orders = [...(ordersData || [])];
   }
 
-  async getAll() {
-    await this.delay();
+async getAll() {
+    await this.delay(200);
     return [...this.orders];
   }
 
@@ -228,7 +228,7 @@ return await this.update(orderId, updatedOrder);
   }
 
 async getMonthlyRevenue() {
-    await this.delay();
+    await this.delay(200);
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
@@ -238,8 +238,8 @@ async getMonthlyRevenue() {
 });
     return monthlyOrders.reduce((sum, order) => sum + (order?.total || order?.totalAmount || 0), 0);
   }
-  async getRevenueByPaymentMethod() {
-    await this.delay();
+async getRevenueByPaymentMethod() {
+    await this.delay(200);
     const revenueByMethod = {};
     
 this.orders.forEach(order => {
@@ -251,7 +251,7 @@ this.orders.forEach(order => {
   }
   // Payment Verification Methods
 async getPendingVerifications() {
-    await this.delay();
+    await this.delay(200);
     return this.orders
       .filter(order => {
         // Include orders with payment proof requiring verification
@@ -697,8 +697,8 @@ getPaymentProofThumbnailUrl(order) {
     console.log('S3 payment proof access audit log:', accessLog);
   }
 
-  delay() {
-    return new Promise(resolve => setTimeout(resolve, 400));
+delay(ms = 200) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

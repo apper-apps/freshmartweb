@@ -11,9 +11,9 @@ const API_BASE_URL = '/api/products';
 /**
  * Simulates API delay for realistic behavior
  * @param {number} ms - Milliseconds to delay
- * @returns {Promise<void>}
+* @returns {Promise<void>}
  */
-const delay = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms = 400) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
  * Get all products with optional filtering
@@ -28,7 +28,7 @@ const delay = (ms = 1000) => new Promise(resolve => setTimeout(resolve, ms));
  */
 export const getAllProducts = async (filters = {}) => {
   try {
-    await delay(500);
+    await delay(200);
     
     let filteredProducts = [...products];
 

@@ -962,7 +962,7 @@ async getGatewayStatus(gatewayId) {
       gateway.Id > max ? gateway.Id : max, 0);
     return maxId + 1;
   }
-delay(ms = 300) {
+delay(ms = 200) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
   
