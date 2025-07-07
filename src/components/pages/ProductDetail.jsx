@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import Badge from '@/components/atoms/Badge';
-import Loading from '@/components/ui/Loading';
-import Error from '@/components/ui/Error';
-import { productService } from '@/services/api/productService';
-import { useCart } from '@/hooks/useCart';
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { useCart } from "@/hooks/useCart";
+import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import Cart from "@/components/pages/Cart";
+import productService from "@/services/api/productService";
 
 const ProductDetail = () => {
   const { productId } = useParams();
@@ -80,11 +81,11 @@ const ProductDetail = () => {
         <Error message="Product not found" onRetry={() => navigate('/category/All')} type="not-found" />
       </div>
     );
-  }
+}
 
-const priceChange = getPriceChange();
+  const priceChange = getPriceChange();
 
-// Calculate dynamic image dimensions with aspect ratio enforcement for 1:1 framing
+  // Calculate dynamic image dimensions with aspect ratio enforcement for 1:1 framing
   const calculateImageDimensions = () => {
     // Get viewport width for responsive sizing
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -127,7 +128,6 @@ const priceChange = getPriceChange();
           <span>Back</span>
         </button>
       </nav>
-
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Product Image with Enhanced 1:1 Frame Display */}
         <div className="space-y-4">
@@ -139,8 +139,8 @@ const priceChange = getPriceChange();
                 height: `${calculateImageDimensions().height}px`,
                 aspectRatio: calculateImageDimensions().aspectRatio
               }}
-            >
-{/* Enhanced Progressive Image Loading with Low-Res Placeholder */}
+>
+              {/* Enhanced Progressive Image Loading with Low-Res Placeholder */}
               <picture className="block w-full h-full">
                 {/* Low-res placeholder for immediate loading */}
                 <source
@@ -258,18 +258,18 @@ const priceChange = getPriceChange();
                 </span>
                 <span className={`text-sm font-medium ${priceChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {priceChange > 0 ? 'Price increased' : 'Price decreased'}
-                </span>
+</span>
               </div>
-)}
+            )}
           </div>
-
           {/* Stock Status */}
           <div className="flex items-center space-x-2">
             <ApperIcon name="Package" size={20} className="text-gray-500" />
             <span className="text-gray-700">
               {product.stock > 0 ? `${product.stock} items in stock` : 'Out of stock'}
-            </span>
+</span>
           </div>
+          
           {/* Quantity Selector */}
           {product.stock > 0 && (
             <div className="space-y-2">
