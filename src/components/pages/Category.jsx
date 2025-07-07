@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
-import CategoryFilter from '@/components/molecules/CategoryFilter';
-import ProductGrid from '@/components/organisms/ProductGrid';
-import SearchBar from '@/components/molecules/SearchBar';
-import ApperIcon from '@/components/ApperIcon';
-import { productService } from '@/services/api/productService';
+import React, { useState, useEffect } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
+import CategoryFilter from '@/components/molecules/CategoryFilter'
+import ProductGrid from '@/components/organisms/ProductGrid'
+import SearchBar from '@/components/molecules/SearchBar'
+import ApperIcon from '@/components/ApperIcon'
+import productService from '@/services/api/productService'
 
 const Category = () => {
   const { categoryName } = useParams();
