@@ -281,16 +281,11 @@ return (
                     <span className="text-gray-900">Payment proof uploaded</span>
                   </div>
 <div className="relative">
-                    <img
-                      src={(() => {
-                        // Import orderService for consistent URL generation
-                        const { orderService } = require('@/services/api/orderService');
-                        return orderService.getPaymentProofThumbnailUrl(order);
-                      })()}
+<img
+                      src={orderService.getPaymentProofThumbnailUrl(order)}
                       alt="Payment proof thumbnail"
                       className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
                       onClick={() => {
-                        const { orderService } = require('@/services/api/orderService');
                         const fullImageUrl = orderService.getPaymentProofUrl(order);
                         window.open(fullImageUrl, '_blank');
                       }}
