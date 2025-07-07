@@ -423,8 +423,135 @@ export const getProductStats = async () => {
   }
 };
 
+/**
+ * Bulk update product prices
+ * @param {Object} updateData - Bulk update configuration
+ * @returns {Promise<Object>} Update results
+ */
+export const bulkUpdatePrices = async (updateData) => {
+  try {
+    await delay(1000);
+    
+    if (!updateData) {
+      throw new Error('Update data is required');
+    }
+
+    // Simulate bulk price update operation
+    return {
+      success: true,
+      message: 'Bulk price update completed successfully',
+      updatedCount: 0
+    };
+  } catch (error) {
+    console.error('Error in bulk price update:', error);
+    throw new Error(error.message || 'Failed to update prices');
+  }
+};
+
+/**
+ * Validate image file
+ * @param {File} file - Image file to validate
+ * @returns {Promise<Object>} Validation result
+ */
+export const validateImage = async (file) => {
+  try {
+    await delay(100);
+    
+    if (!file) {
+      return { isValid: false, error: 'No file provided' };
+    }
+
+    if (!file.type.startsWith('image/')) {
+      return { isValid: false, error: 'Please select a valid image file' };
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      return { isValid: false, error: 'Image file size must be less than 10MB' };
+    }
+
+    return { isValid: true };
+  } catch (error) {
+    return { isValid: false, error: 'Failed to validate image' };
+  }
+};
+
+/**
+ * Process and optimize image
+ * @param {File} file - Image file to process
+ * @param {Object} options - Processing options
+ * @returns {Promise<Object>} Processed image data
+ */
+export const processImage = async (file, options = {}) => {
+  try {
+    await delay(800);
+    
+    // Simulate image processing
+    const url = URL.createObjectURL(file);
+    
+    return {
+      url,
+      optimized: true,
+      size: options.targetSize || { width: 600, height: 600 }
+    };
+  } catch (error) {
+    throw new Error('Failed to process image');
+  }
+};
+
+/**
+ * Search images from external sources
+ * @param {string} query - Search query
+ * @param {Object} options - Search options
+ * @returns {Promise<Array>} Array of image results
+ */
+export const searchImages = async (query, options = {}) => {
+  try {
+    await delay(600);
+    
+    // Simulate image search results
+    const results = Array.from({ length: 12 }, (_, index) => ({
+      url: `https://picsum.photos/600/600?random=${Date.now() + index}`,
+      thumbnail: `https://picsum.photos/200/200?random=${Date.now() + index}`,
+      description: `${query} image ${index + 1}`,
+      attribution: {
+        photographer: `Photographer ${index + 1}`,
+        source: 'Unsplash'
+      }
+    }));
+
+    return results;
+  } catch (error) {
+    throw new Error('Failed to search images');
+  }
+};
+
+/**
+ * Generate AI image
+ * @param {string} prompt - Image generation prompt
+ * @param {Object} options - Generation options
+ * @returns {Promise<Object>} Generated image data
+ */
+export const generateAIImage = async (prompt, options = {}) => {
+  try {
+    await delay(2000);
+    
+    // Simulate AI image generation
+    const url = `https://picsum.photos/600/600?random=${Date.now()}`;
+    
+    return {
+      url,
+      prompt,
+      style: options.style || 'realistic',
+      generated: true
+    };
+  } catch (error) {
+    throw new Error('Failed to generate AI image');
+  }
+};
+
 // Default export for backward compatibility
 export default {
+  getAll: getAllProducts,
   getAllProducts,
   getProductById,
   getProductsByCategory,
@@ -436,5 +563,10 @@ export default {
   deleteProduct,
   updateProductStock,
   getLowStockProducts,
-  getProductStats
+  getProductStats,
+  bulkUpdatePrices,
+  validateImage,
+  processImage,
+  searchImages,
+  generateAIImage
 };

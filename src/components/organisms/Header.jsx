@@ -39,7 +39,7 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
             <Link to="/orders" className="text-gray-700 hover:text-primary transition-colors">
               Orders
             </Link>
-            <Link to="/admin" className="text-gray-700 hover:text-primary transition-colors">
+<Link to="/admin/dashboard" className="text-gray-700 hover:text-primary transition-colors">
               Admin
             </Link>
           </nav>
@@ -113,8 +113,8 @@ const Header = ({ isMobileMenuOpen, setIsMobileMenuOpen }) => {
             >
               Orders
             </Link>
-            <Link 
-              to="/admin" 
+<Link 
+              to="/admin/dashboard" 
               className="block px-3 py-2 text-gray-700 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
               onClick={() => setIsMobileMenuOpen(false)}
             >

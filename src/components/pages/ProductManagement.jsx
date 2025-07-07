@@ -9,7 +9,7 @@ import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Category from "@/components/pages/Category";
-import productService from "@/services/api/productService";
+import productService, { getAllProducts } from "@/services/api/productService";
 const ProductManagement = () => {
   // State management with proper initialization
   const [products, setProducts] = useState([]);
@@ -53,11 +53,12 @@ const [formData, setFormData] = useState({
   const units = ["kg", "g", "piece", "litre", "ml", "pack", "dozen", "box"];
 
   // Load products with comprehensive error handling
-  const loadProducts = async () => {
+const loadProducts = async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await productService.getAll();
+      const response = await getAllProducts();
+      const data = response?.data || [];
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error loading products:", err);
@@ -279,11 +280,11 @@ const [formData, setFormData] = useState({
       };
 
       let result;
-      if (editingProduct) {
-        result = await productService.update(editingProduct.id, productData);
+if (editingProduct) {
+        result = await productService.updateProduct(editingProduct.id, productData);
         toast.success("Product updated successfully!");
       } else {
-        result = await productService.create(productData);
+        result = await productService.createProduct(productData);
         toast.success("Product created successfully!");
       }
 
@@ -330,7 +331,7 @@ setFormData({
       const confirmed = window.confirm("Are you sure you want to delete this product?");
       if (!confirmed) return;
 
-      await productService.delete(id);
+await productService.deleteProduct(id);
       toast.success("Product deleted successfully!");
       await loadProducts();
     } catch (err) {

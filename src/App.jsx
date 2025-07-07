@@ -298,6 +298,11 @@ function App() {
                       <Account />
                     </Suspense>
                   } />
+<Route path="admin" element={
+                    <Suspense fallback={<Loading type="page" />}>
+                      <AdminDashboard />
+                    </Suspense>
+                  } />
                   <Route path="admin/dashboard" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <AdminDashboard />
