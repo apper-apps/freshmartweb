@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
+import Modal from "react-modal";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
@@ -9,7 +10,6 @@ import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Category from "@/components/pages/Category";
 import { productService } from "@/services/api/productService";
-
 const ProductManagement = () => {
   // State management with proper initialization
   const [products, setProducts] = useState([]);
@@ -1624,6 +1624,9 @@ const ImageUploadSystem = ({
         />
       )}
 
+      {/* Modal Image Viewer */}
+      <ModalImageViewer />
+
 {/* Enhanced AI Image Generator Tab */}
       {imageData.activeTab === 'ai-generate' && (
         <AIImageGenerator
@@ -2052,17 +2055,17 @@ const UnsplashImageSearch = ({
           </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {imageData.searchResults.map((image, index) => (
+{imageData.searchResults.map((image, index) => (
               <div
                 key={index}
                 className="relative group cursor-pointer rounded-xl overflow-hidden aspect-square bg-gray-100 hover:shadow-xl transition-all duration-300 hover:scale-102 border-2 border-transparent hover:border-blue-200"
+                onClick={() => onImageSelect(image.url, image.attribution)}
               >
                 <img
                   src={image.thumbnail}
                   alt={image.description || 'Search result'}
                   className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                  onClick={() => onImageSelect(image.url, image.attribution)}
-/>
+                />
                 
                 {/* Enhanced Hover Overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-between p-3">
@@ -2075,12 +2078,28 @@ const UnsplashImageSearch = ({
                       Unsplash
                     </div>
                   </div>
-                  
-                  {/* Center Download Button */}
-                  <div className="flex items-center justify-center">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-full p-3 transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                      <ApperIcon name="Download" size={20} className="text-blue-600" />
-                    </div>
+{/* Center Action Buttons */}
+                  <div className="flex items-center justify-center space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleImageView(image);
+                      }}
+                      className="bg-white/95 backdrop-blur-sm rounded-full p-3 transform scale-0 group-hover:scale-100 transition-transform duration-300 hover:bg-blue-50"
+                      title="View Fullscreen"
+                    >
+                      <ApperIcon name="Eye" size={20} className="text-blue-600" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleImageDownload(image);
+                      }}
+                      className="bg-white/95 backdrop-blur-sm rounded-full p-3 transform scale-0 group-hover:scale-100 transition-transform duration-300 hover:bg-green-50"
+                      title="Download Image"
+                    >
+                      <ApperIcon name="Download" size={20} className="text-green-600" />
+                    </button>
                   </div>
                   
                   {/* Bottom Attribution */}
@@ -2209,7 +2228,313 @@ const UnsplashImageSearch = ({
         </div>
       </div>
     </div>
+</div>
   );
+  // Enhanced image viewing and download handlers
+  const handleImageView = (image) => {
+    setModalViewer({
+      isOpen: true,
+      image: image,
+      loading: false,
+      error: null
+    });
+  };
+
+  const handleImageDownload = async (image) => {
+    try {
+      setDownloadStatus(prev => ({ ...prev, [image.url]: 'downloading' }));
+      
+      // Validate image URL and check existence
+      const validation = await productService.validateImageUrl(image.url);
+      if (!validation.exists) {
+        toast.error('Image not found or no longer available');
+        setDownloadStatus(prev => ({ ...prev, [image.url]: 'error' }));
+        return;
+      }
+
+      // Check MIME type for proper handling
+      const mimeType = await productService.getMimeType(image.url);
+      if (!mimeType.startsWith('image/')) {
+        toast.error('Invalid image format');
+        setDownloadStatus(prev => ({ ...prev, [image.url]: 'error' }));
+        return;
+      }
+
+      // Download with proper error handling
+      const response = await fetch(image.url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create download link with proper filename
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `product-image-${Date.now()}.${mimeType.split('/')[1]}`;
+      
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      
+      setDownloadStatus(prev => ({ ...prev, [image.url]: 'completed' }));
+      toast.success('Image downloaded successfully!');
+      
+    } catch (error) {
+      console.error('Download error:', error);
+      setDownloadStatus(prev => ({ ...prev, [image.url]: 'error' }));
+      toast.error(`Download failed: ${error.message}`);
+    }
+  };
+
+  // Modal viewer state
+  const [modalViewer, setModalViewer] = useState({
+    isOpen: false,
+    image: null,
+    loading: false,
+    error: null
+  });
+
+  const [downloadStatus, setDownloadStatus] = useState({});
 };
 
+// Modal Image Viewer Component with Error Boundaries
+const ModalImageViewer = () => {
+  const [modalViewer, setModalViewer] = useState({
+    isOpen: false,
+    image: null,
+    loading: false,
+    error: null
+  });
+
+  const [imageLoadError, setImageLoadError] = useState(false);
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+
+  const closeModal = () => {
+    setModalViewer({
+      isOpen: false,
+      image: null,
+      loading: false,
+      error: null
+    });
+    setImageLoadError(false);
+    setIsImageLoaded(false);
+  };
+
+  const handleImageLoad = () => {
+    setIsImageLoaded(true);
+    setImageLoadError(false);
+    setModalViewer(prev => ({ ...prev, loading: false }));
+  };
+
+  const handleImageError = () => {
+    setImageLoadError(true);
+    setIsImageLoaded(false);
+    setModalViewer(prev => ({ 
+      ...prev, 
+      loading: false,
+      error: 'Failed to load image. The image may have been moved or deleted.'
+    }));
+  };
+
+  const handleDownloadFromModal = async () => {
+    if (!modalViewer.image) return;
+    
+    try {
+      setModalViewer(prev => ({ ...prev, loading: true }));
+      
+      // Enhanced download with error handling
+      const response = await fetch(modalViewer.image.url);
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `product-image-${Date.now()}.jpg`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Image downloaded successfully!');
+      setModalViewer(prev => ({ ...prev, loading: false }));
+      
+    } catch (error) {
+      console.error('Modal download error:', error);
+      setModalViewer(prev => ({ 
+        ...prev, 
+        loading: false,
+        error: `Download failed: ${error.message}`
+      }));
+      toast.error(`Download failed: ${error.message}`);
+    }
+  };
+
+  const modalStyles = {
+    overlay: {
+      backgroundColor: 'rgba(0, 0, 0, 0.8)',
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    },
+    content: {
+      position: 'relative',
+      top: 'auto',
+      left: 'auto',
+      right: 'auto',
+      bottom: 'auto',
+      border: 'none',
+      background: 'transparent',
+      overflow: 'visible',
+      borderRadius: '0',
+      outline: 'none',
+      padding: '0',
+      maxWidth: '95vw',
+      maxHeight: '95vh',
+      width: 'fit-content',
+      height: 'fit-content'
+    }
+  };
+
+  return (
+    <Modal
+      isOpen={modalViewer.isOpen}
+      onRequestClose={closeModal}
+      style={modalStyles}
+      shouldCloseOnOverlayClick={true}
+      shouldCloseOnEsc={true}
+      contentLabel="Image Viewer"
+    >
+      {modalViewer.image && (
+        <div className="relative bg-white rounded-lg shadow-2xl max-w-4xl max-h-full overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="flex items-center space-x-3">
+              <ApperIcon name="Image" size={20} className="text-blue-600" />
+              <div>
+                <h3 className="font-semibold text-gray-900">
+                  {modalViewer.image.description || 'Product Image'}
+                </h3>
+                {modalViewer.image.attribution && (
+                  <p className="text-sm text-gray-600">
+                    by {modalViewer.image.attribution.photographer}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon="Download"
+                onClick={handleDownloadFromModal}
+                disabled={modalViewer.loading || imageLoadError}
+                loading={modalViewer.loading}
+              >
+                Download
+              </Button>
+              <button
+                onClick={closeModal}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Close"
+              >
+                <ApperIcon name="X" size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Image Container with Error Boundary */}
+          <div className="relative bg-gray-100 flex items-center justify-center" style={{ minHeight: '400px', maxHeight: '70vh' }}>
+            {modalViewer.loading && !isImageLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <div className="text-center space-y-3">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-gray-600">Loading image...</p>
+                </div>
+              </div>
+            )}
+
+            {imageLoadError ? (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                <div className="text-center space-y-4 p-8">
+                  <ApperIcon name="ImageOff" size={48} className="text-gray-400 mx-auto" />
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-2">Image Not Available</h4>
+                    <p className="text-gray-600 mb-4">
+                      {modalViewer.error || 'The image could not be loaded. It may have been moved or deleted.'}
+                    </p>
+                    <Button variant="secondary" onClick={closeModal}>
+                      Close
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <img
+                src={modalViewer.image.url}
+                alt={modalViewer.image.description || 'Product image'}
+                onLoad={handleImageLoad}
+                onError={handleImageError}
+                className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
+                  isImageLoaded ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ maxHeight: '70vh' }}
+              />
+            )}
+          </div>
+
+          {/* Footer with Image Info */}
+          {modalViewer.image && !imageLoadError && (
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <ApperIcon name="Tag" size={14} className="text-gray-500" />
+                    <span className="text-gray-600">Source:</span>
+                    <Badge variant="info" className="text-xs">
+                      {modalViewer.image.source || 'Unsplash'}
+                    </Badge>
+                  </div>
+                  {modalViewer.image.category && (
+                    <div className="flex items-center space-x-2">
+                      <ApperIcon name="Folder" size={14} className="text-gray-500" />
+                      <span className="text-gray-600">Category:</span>
+                      <span className="font-medium">{modalViewer.image.category}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <ApperIcon name="Shield" size={14} className="text-green-600" />
+                    <span className="text-gray-600">License:</span>
+                    <span className="text-green-600 font-medium">Commercial Use OK</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <ApperIcon name="Award" size={14} className="text-blue-600" />
+                    <span className="text-gray-600">Quality:</span>
+                    <span className="text-blue-600 font-medium">High Resolution</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+};
 export default ProductManagement;

@@ -4,6 +4,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
+import Modal from "react-modal";
 import { persistor, store } from "@/store/index";
 import Layout from "@/components/organisms/Layout";
 import Loading from "@/components/ui/Loading";
@@ -114,6 +115,11 @@ function App() {
 
     return () => clearTimeout(preloadTimer);
   }, []);
+// Set up React Modal root element for accessibility
+  useEffect(() => {
+    Modal.setAppElement('#root');
+  }, []);
+
 return (
     <Provider store={store}>
       <PersistGate loading={<Loading type="page" />} persistor={persistor}>

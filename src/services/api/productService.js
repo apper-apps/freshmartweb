@@ -985,7 +985,159 @@ width = targetHeight * aspectRatio;
       y: Math.max(0, mainRegion.y - 50),
       width: Math.min(targetDimensions.width, mainRegion.width + 100),
       height: Math.min(targetDimensions.height, mainRegion.height + 100)
-    };
+};
+  }
+
+  // Enhanced image URL validation for download safety
+  async validateImageUrl(url) {
+    try {
+      // Basic URL validation
+      if (!url || typeof url !== 'string') {
+        return { exists: false, error: 'Invalid URL provided' };
+      }
+
+      // Check if URL is accessible
+      const response = await fetch(url, { method: 'HEAD' });
+      
+      if (!response.ok) {
+        return { 
+          exists: false, 
+          error: `Image not accessible (${response.status}: ${response.statusText})` 
+        };
+      }
+
+      // Validate content type
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.startsWith('image/')) {
+        return { 
+          exists: false, 
+          error: 'URL does not point to a valid image file' 
+        };
+      }
+
+      // Get file size for validation
+      const contentLength = response.headers.get('content-length');
+      const fileSize = contentLength ? parseInt(contentLength) : 0;
+
+      return {
+        exists: true,
+        contentType,
+        fileSize,
+        isValidImage: true
+      };
+
+    } catch (error) {
+      console.error('Error validating image URL:', error);
+      return { 
+        exists: false, 
+        error: `Network error: ${error.message}` 
+      };
+    }
+  }
+
+  // Check file existence with comprehensive error handling
+  async checkFileExistence(url) {
+    try {
+      const response = await fetch(url, { 
+        method: 'HEAD',
+        cache: 'no-cache'
+      });
+      
+      return {
+        exists: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        lastModified: response.headers.get('last-modified'),
+        contentLength: response.headers.get('content-length')
+      };
+    } catch (error) {
+      return {
+        exists: false,
+        status: 0,
+        statusText: 'Network Error',
+        error: error.message
+      };
+    }
+  }
+
+  // Get MIME type for proper file handling
+  async getMimeType(url) {
+    try {
+      const response = await fetch(url, { method: 'HEAD' });
+      
+      if (!response.ok) {
+        throw new Error(`Unable to fetch file headers (${response.status})`);
+      }
+
+      const contentType = response.headers.get('content-type');
+      
+      if (!contentType) {
+        // Fallback to file extension
+        const extension = url.split('.').pop().toLowerCase();
+        const mimeMap = {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+          'svg': 'image/svg+xml',
+          'bmp': 'image/bmp'
+        };
+        return mimeMap[extension] || 'application/octet-stream';
+      }
+
+      return contentType.split(';')[0]; // Remove charset info
+    } catch (error) {
+      console.error('Error getting MIME type:', error);
+      return 'application/octet-stream'; // Safe fallback
+    }
+  }
+
+  // Enhanced download with retry mechanism and progress tracking
+  async downloadImageWithRetry(url, maxRetries = 3) {
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Validate before download
+        const validation = await this.validateImageUrl(url);
+        if (!validation.exists) {
+          throw new Error(validation.error);
+        }
+
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        
+        // Verify blob is actually an image
+        if (!blob.type.startsWith('image/')) {
+          throw new Error(`Downloaded file is not an image (${blob.type})`);
+        }
+
+        return {
+          blob,
+          success: true,
+          attempt,
+          size: blob.size,
+          type: blob.type
+        };
+
+      } catch (error) {
+        lastError = error;
+        console.warn(`Download attempt ${attempt} failed:`, error.message);
+        
+        if (attempt < maxRetries) {
+          // Wait before retry with exponential backoff
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        }
+      }
+    }
+
+    throw new Error(`Download failed after ${maxRetries} attempts. Last error: ${lastError.message}`);
   }
 }
 export const productService = new ProductService();
