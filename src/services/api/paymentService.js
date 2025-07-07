@@ -1167,11 +1167,10 @@ generateFileUrl(fileName) {
     // Mark as deleted instead of removing (for audit trail)
     this.paymentProofs[index].status = 'deleted';
     this.paymentProofs[index].deletedAt = new Date().toISOString();
-    this.paymentProofs[index].deletedBy = this.currentUserRole;
+this.paymentProofs[index].deletedBy = this.currentUserRole;
 
     return { success: true };
   }
-}
 
   // Recurring Payment Automation Methods
   async createRecurringPayment(recurringData) {
