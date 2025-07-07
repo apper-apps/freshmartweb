@@ -947,90 +947,116 @@ const getFilteredTransactions = () => {
                     </div>
 
 {verification.paymentProof && (
-                      <div className="mb-4">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Payment Proof:</p>
-                        <div className="relative group">
-                          <img
-                            src={verification.paymentProofThumbnail || verification.paymentProof || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg=='}
-                            alt="Payment proof thumbnail"
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => {
-                              // Create modal for fullscreen view
-                              const fullImageUrl = verification.paymentProof || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==';
-                              const modal = document.createElement('div');
-                              modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                              modal.innerHTML = `
-                                <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden shadow-2xl">
-                                  <div class="relative">
-                                    <img src="${fullImageUrl}" alt="Payment proof fullscreen" class="max-w-full max-h-[80vh] mx-auto block" style="object-fit: contain;" />
-                                    <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-lg transition-colors z-10 shadow-lg">
-                                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                      </svg>
-                                    </button>
-                                  </div>
-                                  <div class="p-6 bg-gray-50 border-t">
-                                    <div class="text-center">
-                                      <h3 class="text-lg font-semibold text-gray-900 mb-2">Payment Proof - Order #${verification.orderId}</h3>
-                                      <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                                        <div>
-                                          <span class="font-medium">Transaction ID:</span>
-                                          <p class="font-mono">${verification.transactionId || 'N/A'}</p>
-                                        </div>
-                                        <div>
-                                          <span class="font-medium">Amount:</span>
-                                          <p class="font-semibold">Rs. ${verification.amount?.toLocaleString() || '0'}</p>
-                                        </div>
-                                        <div>
-                                          <span class="font-medium">Payment Method:</span>
-                                          <p class="capitalize">${verification.paymentMethod || 'Unknown'}</p>
-                                        </div>
-                                        <div>
-                                          <span class="font-medium">File Name:</span>
-                                          <p class="truncate">${verification.paymentProofFileName || 'Unknown'}</p>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              `;
-                              modal.onclick = (e) => {
-                                if (e.target === modal || e.target.closest('button')) {
-                                  document.body.removeChild(modal);
-                                  document.body.style.overflow = '';
-                                }
-                              };
-                              // Prevent scroll on body when modal is open
-                              document.body.style.overflow = 'hidden';
-                              document.body.appendChild(modal);
-                            }}
-onError={(e) => {
-                              console.warn('Failed to load payment proof image:', e.target.src);
-                              // Only replace with placeholder if it's not already a placeholder
-                              if (!e.target.src.startsWith('data:image/svg+xml')) {
-                                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-                                e.target.alt = 'Payment proof image not available';
-                              }
-                            }}
-                          />
-                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-2 rounded-lg">
-                              <ApperIcon name="ZoomIn" size={24} className="text-white" />
-                            </div>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const imageUrl = verification.paymentProof || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-                              window.open(imageUrl, '_blank');
-                            }}
-                            className="absolute top-2 right-2 bg-white/80 hover:bg-white p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shadow-md"
-                          >
-                            <ApperIcon name="ExternalLink" size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
+<div className="mb-4">
+                         <p className="text-sm font-medium text-gray-700 mb-2">Payment Proof:</p>
+                         <div className="relative group">
+                           <img
+                             src={verification.paymentProofThumbnail || verification.paymentProof || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg=='}
+                             alt="Payment proof thumbnail"
+                             className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity bg-gray-50"
+                             onClick={() => {
+                               // Create modal for fullscreen view with enhanced error handling
+                               const fullImageUrl = verification.paymentProof || verification.paymentProofThumbnail || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==';
+                               const modal = document.createElement('div');
+                               modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                               modal.innerHTML = `
+                                 <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden shadow-2xl">
+                                   <div class="relative">
+                                     <div class="flex items-center justify-center min-h-[500px] bg-gray-100">
+                                       <img 
+                                         src="${fullImageUrl}" 
+                                         alt="Payment proof fullscreen" 
+                                         class="max-w-full max-h-[80vh] mx-auto block object-contain"
+                                         style="background: white; border-radius: 4px;"
+                                         onload="
+                                           this.parentElement.classList.remove('bg-gray-100');
+                                           this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+                                         "
+                                         onerror="
+                                           this.style.display = 'none';
+                                           this.parentElement.innerHTML = '<div class=\\'text-center p-12\\'><div class=\\'w-32 h-32 mx-auto mb-6 bg-gray-300 rounded-lg flex items-center justify-center\\'><svg class=\\'w-16 h-16 text-gray-500\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z\\'></path></svg></div><h4 class=\\'text-lg font-medium text-gray-900 mb-2\\'>Payment Proof Unavailable</h4><p class=\\'text-gray-600\\'>The payment proof image could not be loaded at this time.</p></div>';
+                                         "
+                                       />
+                                     </div>
+                                     <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-lg transition-colors z-10 shadow-lg">
+                                       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                       </svg>
+                                     </button>
+                                   </div>
+                                   <div class="p-6 bg-gray-50 border-t">
+                                     <div class="text-center">
+                                       <h3 class="text-lg font-semibold text-gray-900 mb-4">Payment Verification Details</h3>
+                                       <div class="grid grid-cols-2 gap-6 text-sm text-gray-600">
+                                         <div class="text-left">
+                                           <span class="font-medium block mb-1">Order ID:</span>
+                                           <p class="font-mono text-gray-800">#${verification.orderId}</p>
+                                         </div>
+                                         <div class="text-left">
+                                           <span class="font-medium block mb-1">Transaction ID:</span>
+                                           <p class="font-mono text-gray-800">${verification.transactionId || 'N/A'}</p>
+                                         </div>
+                                         <div class="text-left">
+                                           <span class="font-medium block mb-1">Amount:</span>
+                                           <p class="font-semibold text-green-600">Rs. ${verification.amount?.toLocaleString() || '0'}</p>
+                                         </div>
+                                         <div class="text-left">
+                                           <span class="font-medium block mb-1">Payment Method:</span>
+                                           <p class="capitalize text-gray-800">${verification.paymentMethod || 'Unknown'}</p>
+                                         </div>
+                                         <div class="col-span-2 text-left">
+                                           <span class="font-medium block mb-1">File Name:</span>
+                                           <p class="truncate text-gray-800">${verification.paymentProofFileName || 'Unknown'}</p>
+                                         </div>
+                                       </div>
+                                     </div>
+                                   </div>
+                                 </div>
+                               `;
+                               modal.onclick = (e) => {
+                                 if (e.target === modal || e.target.closest('button')) {
+                                   document.body.removeChild(modal);
+                                   document.body.style.overflow = '';
+                                 }
+                               };
+                               // Prevent scroll on body when modal is open
+                               document.body.style.overflow = 'hidden';
+                               document.body.appendChild(modal);
+                             }}
+                             onError={(e) => {
+                               console.warn('Failed to load payment proof image:', e.target.src);
+                               // Enhanced error handling with graceful fallback
+                               if (!e.target.src.startsWith('data:image/svg+xml')) {
+                                 e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+                                 e.target.alt = 'Payment proof image not available';
+                                 e.target.style.objectFit = 'contain';
+                               }
+                             }}
+                           />
+                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                             <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-2 rounded-lg">
+                               <ApperIcon name="ZoomIn" size={24} className="text-white" />
+                             </div>
+                           </div>
+                           <button
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               const imageUrl = verification.paymentProof || verification.paymentProofThumbnail || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+                               // Try to open in new tab, fallback to download if possible
+                               if (!imageUrl.startsWith('data:image/svg+xml')) {
+                                 window.open(imageUrl, '_blank');
+                               } else {
+                                 // For placeholder images, show a message
+                                 alert('Payment proof image is not available for download.');
+                               }
+                             }}
+                             className="absolute top-2 right-2 bg-white/80 hover:bg-white p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shadow-md"
+                           >
+                             <ApperIcon name="ExternalLink" size={16} />
+                           </button>
+                         </div>
+                       </div>
+                     )}
 
 <div className="flex space-x-3">
                       <Button

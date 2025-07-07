@@ -203,6 +203,7 @@ const Orders = () => {
                         <ApperIcon name="FileText" size={14} className="text-gray-500" />
 <span className="text-sm text-gray-600">Payment proof uploaded</span>
                       </div>
+)}
                       {order.paymentProof && (
                         <div className="relative group">
                           <img
@@ -214,18 +215,41 @@ const Orders = () => {
                               const modal = document.createElement('div');
                               modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                               modal.innerHTML = `
-                                <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden">
+                                <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden shadow-2xl">
                                   <div class="relative">
-                                    <img src="${fullImageUrl}" alt="Payment proof fullscreen" class="max-w-full max-h-[80vh] mx-auto block" />
-                                    <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition-colors">
+                                    <div class="flex items-center justify-center min-h-[400px] bg-gray-100">
+                                      <img 
+                                        src="${fullImageUrl}" 
+                                        alt="Payment proof fullscreen" 
+                                        class="max-w-full max-h-[80vh] mx-auto block object-contain"
+                                        style="background: white;"
+                                        onload="this.parentElement.classList.remove('bg-gray-100')"
+                                        onerror="
+                                          this.style.display = 'none';
+                                          this.parentElement.innerHTML = '<div class=\\'text-center p-8\\'><div class=\\'w-24 h-24 mx-auto mb-4 bg-gray-300 rounded-lg flex items-center justify-center\\'><svg class=\\'w-12 h-12 text-gray-500\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z\\'></path></svg></div><p class=\\'text-gray-600\\'>Payment proof temporarily unavailable</p></div>';
+                                        "
+                                      />
+                                    </div>
+                                    <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-lg transition-colors z-10 shadow-lg">
                                       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                       </svg>
                                     </button>
                                   </div>
-                                  <div class="p-4 bg-gray-50 text-center">
-                                    <p class="text-sm text-gray-600">Payment Proof - Order #${order.id}</p>
-                                    <p class="text-xs text-gray-500 mt-1">Transaction: ${order.transactionId || 'N/A'}</p>
+                                  <div class="p-6 bg-gray-50 border-t">
+                                    <div class="text-center">
+                                      <h3 class="text-lg font-semibold text-gray-900 mb-2">Payment Proof - Order #${order.id}</h3>
+                                      <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                        <div>
+                                          <span class="font-medium">Transaction ID:</span>
+                                          <p class="font-mono">${order.transactionId || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                          <span class="font-medium">Payment Method:</span>
+                                          <p class="capitalize">${order.paymentMethod || 'Unknown'}</p>
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               `;
@@ -238,7 +262,7 @@ const Orders = () => {
                               document.body.style.overflow = 'hidden';
                               document.body.appendChild(modal);
                             }}
-onError={(e) => {
+                            onError={(e) => {
                               console.warn('Failed to load payment proof thumbnail:', e.target.src);
                               // Only replace with placeholder if it's not already a placeholder
                               if (!e.target.src.startsWith('data:image/svg+xml')) {
@@ -254,7 +278,6 @@ onError={(e) => {
                           </div>
                         </div>
                       )}
-                      <p className="text-xs text-gray-500 mt-1">Payment proof thumbnail</p>
                     </div>
                   )}
                 </div>

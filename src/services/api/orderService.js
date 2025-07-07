@@ -304,22 +304,43 @@ async updateVerificationStatus(orderId, status, notes = '') {
     return { ...updatedOrder };
   }
 
-  // Secure image serving methods
-  async servePaymentProof(fileName, userRole = 'admin') {
+// Enhanced secure image serving methods with RBAC and malware scanning
+  async servePaymentProof(fileName, userRole = 'admin', sessionToken = null) {
     await this.delay(200);
     
-    // Validate user has permission to access file
-    if (userRole !== 'admin' && userRole !== 'finance_manager') {
+    // Enhanced authentication and authorization
+    if (!this.validateUserAccess(userRole, sessionToken)) {
+      throw new Error('Authentication required to access payment proof');
+    }
+    
+    // Validate user has permission to access file with detailed role checking
+    if (!this.hasFileAccessPermission(userRole)) {
       throw new Error('Insufficient permissions to access payment proof');
     }
 
-    // Find order with this payment proof
-    const order = this.orders.find(o => o.paymentProofFileName === fileName);
+    // Find order with this payment proof with enhanced search
+    const order = this.findOrderByPaymentProof(fileName);
     if (!order) {
-      throw new Error('Payment proof not found');
+      throw new Error('Payment proof not found or has been removed');
     }
 
-    // Simulate file serving with proper headers
+    // Validate file exists and is not marked as deleted
+    if (order.paymentProof?.status === 'deleted' || order.paymentProof?.isDeleted) {
+      throw new Error('Payment proof has been removed');
+    }
+
+    // Check file age for automatic cleanup (30+ days)
+    if (this.isFileExpired(order.paymentProofSubmittedAt || order.createdAt)) {
+      throw new Error('Payment proof has expired and been archived');
+    }
+
+    // Simulate malware scan result check
+    const scanResult = await this.checkFileSecurity(fileName, order);
+    if (!scanResult.isSafe) {
+      throw new Error('File access denied due to security concerns');
+    }
+
+    // Simulate file serving with enhanced security headers
     return {
       fileName: fileName,
       mimeType: order.paymentProof?.fileType || 'image/jpeg',
@@ -330,8 +351,70 @@ async updateVerificationStatus(orderId, status, notes = '') {
       securityHeaders: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
-        'Referrer-Policy': 'strict-origin-when-cross-origin'
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline';",
+        'X-XSS-Protection': '1; mode=block',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
+      },
+      accessLog: {
+        accessedBy: userRole,
+        accessedAt: new Date().toISOString(),
+        clientIP: '127.0.0.1', // In real implementation, get from request
+        userAgent: 'Admin-Dashboard'
       }
+    };
+  }
+
+  // Enhanced user access validation
+  validateUserAccess(userRole, sessionToken) {
+    // In real implementation, validate session token and user permissions
+    const validRoles = ['admin', 'finance_manager', 'support_manager'];
+    return validRoles.includes(userRole) && (sessionToken || true); // Simplified for mock
+  }
+
+  // Enhanced permission checking
+  hasFileAccessPermission(userRole) {
+    const fileAccessRoles = ['admin', 'finance_manager'];
+    return fileAccessRoles.includes(userRole);
+  }
+
+  // Enhanced order search by payment proof
+  findOrderByPaymentProof(fileName) {
+    return this.orders.find(o => 
+      o.paymentProofFileName === fileName || 
+      o.paymentProof?.fileName === fileName ||
+      (o.paymentProof && typeof o.paymentProof === 'object' && o.paymentProof.fileName === fileName)
+    );
+  }
+
+  // Check if file has expired (30+ days old)
+  isFileExpired(uploadDate) {
+    if (!uploadDate) return false;
+    
+    const uploadTime = new Date(uploadDate).getTime();
+    const currentTime = new Date().getTime();
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+    
+    return (currentTime - uploadTime) > thirtyDaysInMs;
+  }
+
+  // Simulate file security check
+  async checkFileSecurity(fileName, order) {
+    await this.delay(100);
+    
+    // Simulate various security checks
+    const securityChecks = {
+      malwareScan: Math.random() > 0.001, // 99.9% clean
+      fileIntegrity: true, // File hasn't been tampered with
+      virusSignature: Math.random() > 0.0001, // 99.99% no virus signatures
+      suspiciousActivity: false // No suspicious access patterns
+    };
+
+    return {
+      isSafe: Object.values(securityChecks).every(check => check === true),
+      scanResults: securityChecks,
+      scannedAt: new Date().toISOString(),
+      scanVersion: '1.0.0'
     };
   }
 
@@ -415,50 +498,94 @@ return {
 }
 
 // Payment Proof URL Helper Methods
-// Payment Proof URL Helper Methods
+// Enhanced Payment Proof URL Helper Methods with robust fallback hierarchy
   getPaymentProofUrl(order) {
-    // Check for direct URL first - this should be the primary source
-    if (order?.paymentProofUrl && order.paymentProofUrl !== '') {
-      return order.paymentProofUrl;
+    try {
+      // Priority 1: Check for direct URL field (highest priority)
+      if (order?.paymentProofUrl && order.paymentProofUrl !== '' && !order.paymentProofUrl.includes('undefined')) {
+        return order.paymentProofUrl;
+      }
+      
+      // Priority 2: Check for base64 or data URLs in paymentProof field
+      if (order?.paymentProof && typeof order.paymentProof === 'string') {
+        if (order.paymentProof.startsWith('data:image/') || order.paymentProof.startsWith('blob:')) {
+          return order.paymentProof;
+        }
+        // Check if it's a direct URL string
+        if (order.paymentProof.startsWith('http') || order.paymentProof.startsWith('/api/')) {
+          return order.paymentProof;
+        }
+      }
+      
+      // Priority 3: Construct URL from file metadata
+      if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
+        const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
+        if (fileName && fileName !== 'undefined' && fileName !== 'null') {
+          return `/api/payment-proofs/secure/${fileName}?auth=true`;
+        }
+      }
+      
+      // Priority 4: Try alternative field names for backwards compatibility
+      if (order?.paymentProof?.fileUrl) {
+        return order.paymentProof.fileUrl;
+      }
+      
+      // Priority 5: Return enhanced placeholder with better error indication
+      return this.getPlaceholderImage('payment_proof_unavailable');
+    } catch (error) {
+      console.warn('Error generating payment proof URL:', error);
+      return this.getPlaceholderImage('payment_proof_error');
     }
-    
-    // Check for base64 or data URLs in paymentProof field
-    if (order?.paymentProof && typeof order.paymentProof === 'string' && order.paymentProof.startsWith('data:')) {
-      return order.paymentProof;
-    }
-    
-    // Check for file-based URLs only if no direct URL is available
-    if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
-      const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
-      return `/api/payment-proofs/${fileName}`;
-    }
-    
-    // Return a placeholder only when absolutely no payment proof is available
-    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==';
   }
 
   getPaymentProofThumbnailUrl(order) {
-    // Check for dedicated thumbnail URL first - this should be the primary source
-    if (order?.paymentProofThumbnailUrl && order.paymentProofThumbnailUrl !== '') {
-      return order.paymentProofThumbnailUrl;
+    try {
+      // Priority 1: Check for dedicated thumbnail URL (highest priority)
+      if (order?.paymentProofThumbnailUrl && order.paymentProofThumbnailUrl !== '' && !order.paymentProofThumbnailUrl.includes('undefined')) {
+        return order.paymentProofThumbnailUrl;
+      }
+      
+      // Priority 2: Check for thumbnail in payment proof object
+      if (order?.paymentProof?.thumbnailUrl && order.paymentProof.thumbnailUrl !== '') {
+        return order.paymentProof.thumbnailUrl;
+      }
+      
+      // Priority 3: Construct thumbnail URL from filename
+      if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
+        const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
+        if (fileName && fileName !== 'undefined' && fileName !== 'null') {
+          // Generate thumbnail filename with WebP format
+          const thumbnailFileName = fileName.replace(/\.[^/.]+$/, '_thumb.webp');
+          return `/api/payment-proofs/thumbnails/${thumbnailFileName}?size=200x200`;
+        }
+      }
+      
+      // Priority 4: Fall back to main URL if it's a real image (not placeholder)
+      const mainUrl = this.getPaymentProofUrl(order);
+      if (mainUrl && !mainUrl.startsWith('data:image/svg+xml') && !mainUrl.includes('placeholder')) {
+        // Add thumbnail parameters to the main URL
+        return `${mainUrl}?thumbnail=true&size=200x200`;
+      }
+      
+      // Priority 5: Return placeholder for thumbnails
+      return this.getPlaceholderImage('thumbnail_unavailable');
+    } catch (error) {
+      console.warn('Error generating payment proof thumbnail URL:', error);
+      return this.getPlaceholderImage('thumbnail_error');
     }
+  }
+  
+  // Enhanced placeholder generation with different types
+  getPlaceholderImage(type = 'default') {
+    const placeholders = {
+      'payment_proof_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=',
+      'payment_proof_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iI0VGNDQ0NCIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEyIj5FcnJvcjwvdGV4dD48L3N2Zz4=',
+      'thumbnail_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA5NUwxMDAgMTEwTDExNSA5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOUNBM0FGIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxMDAiIHk9IjE2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMiI+VGh1bWJuYWlsPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=',
+      'thumbnail_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA4NUwxMTUgMTE1TTExNSA4NUw4NSAxMTUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMTAwIiB5PSIxNjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNFRjQ0NDQiIGZvbnQtc2l6ZT0iMTIiPkVycm9yPC90ZXh0Pjwvc3ZnPg==',
+      'default': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5JbWFnZTwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMCI+Tm90IEZvdW5kPC90ZXh0Pjwvc3ZnPg=='
+    };
     
-    // Fall back to the main payment proof URL for thumbnails
-    const mainUrl = this.getPaymentProofUrl(order);
-    
-    // If we have a real image URL (not placeholder), use it as thumbnail
-    if (mainUrl && !mainUrl.startsWith('data:image/svg+xml')) {
-      return mainUrl;
-    }
-    
-    // Check for file-based thumbnail URLs
-    if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
-      const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
-      return `/api/payment-proofs/thumbnails/${fileName}`;
-}
-    
-    // Return the main URL (which could be placeholder)
-    return mainUrl;
+    return placeholders[type] || placeholders['default'];
   }
 
   delay() {

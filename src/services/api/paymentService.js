@@ -1381,33 +1381,39 @@ generateFileUrl(fileName) {
   }
 
   // File Storage Service Methods
-  async uploadPaymentProof(file, orderId, transactionId) {
+// Enhanced File Storage Service Methods with comprehensive security
+  async uploadPaymentProof(file, orderId, transactionId, userId = null) {
     await this.delay(500);
     
     if (!file || !file.name) {
       throw new Error('Invalid file provided');
     }
 
-    // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error('Invalid file type. Only JPEG, PNG, WebP, and PDF files are allowed');
+    // Enhanced file validation with comprehensive security checks
+    const validationResult = await this.validateFileUpload(file);
+    if (!validationResult.isValid) {
+      throw new Error(validationResult.error);
     }
 
-    // Validate file size (5MB max)
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error('File size must be less than 5MB');
+    // Simulate ClamAV malware scanning
+    const scanResult = await this.performMalwareScan(file);
+    if (!scanResult.isClean) {
+      throw new Error('File failed security scan. Please ensure the file is safe and try again.');
     }
 
-    // Generate unique filename with timestamp and random string
+    // Generate unique filename with OrderID_UserID_Timestamp pattern
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
     const fileExtension = file.name.split('.').pop().toLowerCase();
-    const uniqueFileName = `payment_proof_${orderId}_${transactionId}_${timestamp}_${randomString}.${fileExtension}`;
+    const currentUserId = userId || 'user_' + Math.random().toString(36).substring(2, 8);
+    const uniqueFileName = `payment_proof_${orderId}_${currentUserId}_${timestamp}_${randomString}.${fileExtension}`;
 
-    // Simulate file upload to dedicated directory
+    // Simulate file upload to dedicated secure directory
     const uploadPath = `./uploads/payment-proofs/${uniqueFileName}`;
-    const fileUrl = `/api/payment-proofs/${uniqueFileName}`;
+    const fileUrl = `/api/payment-proofs/secure/${uniqueFileName}`;
+
+    // Generate thumbnail for images using Sharp.js simulation
+    const thumbnailData = await this.generateSecureThumbnail(file, uniqueFileName);
 
     const uploadedFile = {
       Id: this.getNextProofId(),
@@ -1419,38 +1425,229 @@ generateFileUrl(fileName) {
       fileSize: file.size,
       orderId: orderId,
       transactionId: transactionId,
+      userId: currentUserId,
       uploadedAt: new Date().toISOString(),
       uploadedBy: 'customer',
       status: 'uploaded',
-      thumbnailUrl: this.generateThumbnailUrl(uniqueFileName, file.type),
+      thumbnailUrl: thumbnailData.thumbnailUrl,
+      thumbnailPath: thumbnailData.thumbnailPath,
       mimeType: file.type,
-      isValid: true
+      isValid: true,
+      isSecure: true,
+      scanResult: scanResult,
+      checksumMD5: this.generateChecksum(file),
+      accessLevel: 'restricted',
+      expiresAt: this.calculateExpirationDate(),
+      metadata: {
+        originalSize: file.size,
+        compressedSize: Math.floor(file.size * 0.8), // Simulate compression
+        format: fileExtension,
+        dimensions: file.type.startsWith('image/') ? '1920x1080' : null,
+        colorSpace: file.type.startsWith('image/') ? 'sRGB' : null
+      }
     };
 
     this.paymentProofs.push(uploadedFile);
+    
+    // Log the upload for audit trail
+    await this.logFileUpload(uploadedFile);
+    
     return { ...uploadedFile };
   }
 
-  async servePaymentProof(fileName, userRole = 'customer') {
+  // Enhanced file validation with comprehensive checks
+  async validateFileUpload(file) {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp', 'application/pdf'];
+    const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const minSize = 1024; // 1KB minimum
+
+    // MIME type validation
+    if (!allowedTypes.includes(file.type)) {
+      return {
+        isValid: false,
+        error: `Invalid file type: ${file.type}. Only JPEG, PNG, WebP, and PDF files are allowed.`
+      };
+    }
+
+    // File extension validation
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    if (!allowedExtensions.includes(fileExtension)) {
+      return {
+        isValid: false,
+        error: `Invalid file extension: .${fileExtension}. Only ${allowedExtensions.join(', ')} extensions are allowed.`
+      };
+    }
+
+    // File size validation
+    if (file.size > maxSize) {
+      return {
+        isValid: false,
+        error: `File size too large: ${(file.size / 1024 / 1024).toFixed(2)}MB. Maximum allowed size is 5MB.`
+      };
+    }
+
+    if (file.size < minSize) {
+      return {
+        isValid: false,
+        error: `File size too small: ${file.size} bytes. Minimum file size is 1KB.`
+      };
+    }
+
+    // Filename validation
+    if (file.name.length > 255) {
+      return {
+        isValid: false,
+        error: 'Filename too long. Maximum 255 characters allowed.'
+      };
+    }
+
+    // Check for suspicious filename patterns
+    const suspiciousPatterns = ['.exe', '.bat', '.cmd', '.scr', '.pif', '.com'];
+    if (suspiciousPatterns.some(pattern => file.name.toLowerCase().includes(pattern))) {
+      return {
+        isValid: false,
+        error: 'Suspicious file detected. Please upload a valid payment proof.'
+      };
+    }
+
+    return { isValid: true };
+  }
+
+  // Simulate ClamAV malware scanning
+  async performMalwareScan(file) {
+    await this.delay(200); // Simulate scan time
+    
+    // Simulate scanning process
+    const scanResults = {
+      scannedAt: new Date().toISOString(),
+      scanEngine: 'ClamAV-Mock',
+      scanVersion: '1.0.0',
+      isClean: Math.random() > 0.001, // 99.9% clean files
+      threats: [],
+      scanTime: Math.floor(Math.random() * 500) + 100 // 100-600ms scan time
+    };
+
+    // Simulate threat detection (very rare)
+    if (!scanResults.isClean) {
+      scanResults.threats = ['Generic.Malware.Test'];
+    }
+
+    return scanResults;
+  }
+
+  // Generate secure thumbnail with 200x200 WebP format
+  async generateSecureThumbnail(file, originalFileName) {
+    if (!file.type.startsWith('image/')) {
+      // For non-images, return default thumbnail
+      return {
+        thumbnailUrl: '/assets/icons/document-thumbnail.png',
+        thumbnailPath: null
+      };
+    }
+
+    await this.delay(300); // Simulate Sharp.js processing time
+
+    // Generate thumbnail filename with WebP format
+    const thumbnailFileName = originalFileName.replace(/\.[^/.]+$/, '_thumb.webp');
+    const thumbnailPath = `./uploads/payment-proofs/thumbnails/${thumbnailFileName}`;
+    const thumbnailUrl = `/api/payment-proofs/thumbnails/${thumbnailFileName}`;
+
+    // Simulate Sharp.js processing
+    return {
+      thumbnailUrl: thumbnailUrl,
+      thumbnailPath: thumbnailPath,
+      dimensions: '200x200',
+      format: 'webp',
+      quality: 85,
+      fileSize: Math.floor(file.size * 0.1), // Thumbnails are ~10% of original size
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  // Generate file checksum for integrity verification
+  generateChecksum(file) {
+    // Simulate MD5 checksum generation
+    const randomBytes = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    return randomBytes.slice(0, 32);
+  }
+
+  // Calculate expiration date (30 days from upload)
+  calculateExpirationDate() {
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 30);
+    return expirationDate.toISOString();
+  }
+
+  // Log file upload for audit trail
+  async logFileUpload(fileData) {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      action: 'file_upload',
+      fileId: fileData.Id,
+      fileName: fileData.fileName,
+      orderId: fileData.orderId,
+      userId: fileData.userId,
+      fileSize: fileData.fileSize,
+      mimeType: fileData.mimeType,
+      ipAddress: '127.0.0.1', // In real implementation, get from request
+      userAgent: 'Customer-App'
+    };
+    
+    // In real implementation, this would be sent to logging service
+    console.log('File upload audit log:', logEntry);
+  }
+
+async servePaymentProof(fileName, userRole = 'customer', sessionToken = null, clientIP = null) {
     await this.delay(200);
     
-    // Validate user has permission to access file
-    if (userRole !== 'admin' && userRole !== 'finance_manager') {
+    // Enhanced authentication and authorization
+    if (!this.validateSecureAccess(userRole, sessionToken)) {
+      throw new Error('Authentication required to access payment proof');
+    }
+    
+    // Validate user has permission to access file with detailed RBAC
+    if (!this.hasSecureFileAccess(userRole)) {
       throw new Error('Insufficient permissions to access payment proof');
     }
 
     const proof = this.paymentProofs.find(p => p.fileName === fileName);
     if (!proof) {
-      throw new Error('Payment proof not found');
+      throw new Error('Payment proof not found or access denied');
     }
 
-    // Check file existence (simulated)
-    const fileExists = Math.random() > 0.05; // 95% success rate
-    if (!fileExists) {
-      throw new Error('File not found on storage');
+    // Check if file has been marked as deleted or expired
+    if (proof.status === 'deleted' || proof.isDeleted) {
+      throw new Error('Payment proof has been removed');
     }
 
-    // Return file data with proper MIME type
+    // Check file expiration (30+ days)
+    if (this.isProofExpired(proof.uploadedAt)) {
+      throw new Error('Payment proof has expired and been archived');
+    }
+
+    // Verify file integrity
+    const integrityCheck = await this.verifyFileIntegrity(proof);
+    if (!integrityCheck.isValid) {
+      throw new Error('File integrity check failed');
+    }
+
+    // Check file existence with enhanced validation
+    const fileExists = await this.verifyFileExists(proof);
+    if (!fileExists.exists) {
+      throw new Error(`File not found on storage: ${fileExists.reason}`);
+    }
+
+    // Perform real-time security scan
+    const securityScan = await this.performRealTimeSecurityScan(proof);
+    if (!securityScan.isSafe) {
+      throw new Error('File access denied due to security concerns');
+    }
+
+    // Log access for audit trail
+    await this.logFileAccess(proof, userRole, clientIP);
+
+    // Return enhanced file data with comprehensive security headers
     return {
       fileName: proof.fileName,
       filePath: proof.filePath,
@@ -1458,14 +1655,130 @@ generateFileUrl(fileName) {
       fileSize: proof.fileSize,
       lastModified: proof.uploadedAt,
       isValid: proof.isValid,
+      isSecure: proof.isSecure,
+      checksumMD5: proof.checksumMD5,
       contentDisposition: `inline; filename="${proof.originalName}"`,
-      cacheControl: 'private, no-cache',
+      cacheControl: 'private, no-cache, no-store, must-revalidate',
       securityHeaders: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
-        'Referrer-Policy': 'strict-origin-when-cross-origin'
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline';",
+        'X-XSS-Protection': '1; mode=block',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        'X-Download-Options': 'noopen',
+        'X-Permitted-Cross-Domain-Policies': 'none'
+      },
+      accessMetadata: {
+        accessedBy: userRole,
+        accessedAt: new Date().toISOString(),
+        accessMethod: 'secure_api',
+        sessionId: sessionToken?.substring(0, 8) + '...' || 'anonymous'
       }
     };
+  }
+
+  // Enhanced secure access validation
+  validateSecureAccess(userRole, sessionToken) {
+    const authorizedRoles = ['admin', 'finance_manager', 'support_manager'];
+    return authorizedRoles.includes(userRole) && (sessionToken || userRole === 'admin'); // Admin can bypass token for mock
+  }
+
+  // Enhanced RBAC for file access
+  hasSecureFileAccess(userRole) {
+    const fileAccessMatrix = {
+      'admin': true,
+      'finance_manager': true,
+      'support_manager': false, // Can see files but not download
+      'customer': false // Customers can only see their own files (additional validation needed)
+    };
+    
+    return fileAccessMatrix[userRole] || false;
+  }
+
+  // Check if proof has expired
+  isProofExpired(uploadDate) {
+    const uploadTime = new Date(uploadDate).getTime();
+    const currentTime = new Date().getTime();
+    const expirationPeriod = 30 * 24 * 60 * 60 * 1000; // 30 days
+    
+    return (currentTime - uploadTime) > expirationPeriod;
+  }
+
+  // Verify file integrity using checksum
+  async verifyFileIntegrity(proof) {
+    await this.delay(100);
+    
+    // Simulate integrity verification
+    const isValid = Math.random() > 0.001; // 99.9% integrity success rate
+    
+    return {
+      isValid: isValid,
+      originalChecksum: proof.checksumMD5,
+      currentChecksum: isValid ? proof.checksumMD5 : 'corrupted',
+      verifiedAt: new Date().toISOString()
+    };
+  }
+
+  // Enhanced file existence verification
+  async verifyFileExists(proof) {
+    await this.delay(150);
+    
+    // Simulate various failure scenarios
+    const scenarios = [
+      { exists: true, reason: 'file_accessible' },
+      { exists: false, reason: 'file_not_found' },
+      { exists: false, reason: 'storage_unavailable' },
+      { exists: false, reason: 'permission_denied' }
+    ];
+    
+    // 95% success rate with specific error reasons
+    const randomIndex = Math.random();
+    if (randomIndex > 0.05) {
+      return scenarios[0]; // Success
+    } else {
+      return scenarios[Math.floor(Math.random() * 3) + 1]; // Random failure
+    }
+  }
+
+  // Real-time security scanning
+  async performRealTimeSecurityScan(proof) {
+    await this.delay(200);
+    
+    const scanResult = {
+      isSafe: Math.random() > 0.0001, // 99.99% safe files
+      scanEngine: 'ClamAV-Realtime',
+      scanVersion: '1.1.0',
+      scannedAt: new Date().toISOString(),
+      threats: [],
+      riskLevel: 'low'
+    };
+    
+    if (!scanResult.isSafe) {
+      scanResult.threats = ['Suspicious.Activity.Detected'];
+      scanResult.riskLevel = 'high';
+    }
+    
+    return scanResult;
+  }
+
+  // Log file access for comprehensive audit trail
+  async logFileAccess(proof, userRole, clientIP) {
+    const accessLog = {
+      timestamp: new Date().toISOString(),
+      action: 'file_access',
+      fileId: proof.Id,
+      fileName: proof.fileName,
+      orderId: proof.orderId,
+      accessedBy: userRole,
+      clientIP: clientIP || '127.0.0.1',
+      userAgent: 'Admin-Dashboard',
+      accessType: 'download',
+      successful: true
+    };
+    
+    // In real implementation, send to audit logging service
+    console.log('File access audit log:', accessLog);
   }
 
   generateThumbnailUrl(fileName, mimeType) {
