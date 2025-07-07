@@ -1,8 +1,7 @@
 import '@/index.css'
-import React, { useEffect, useState } from "react";
+import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App";
-import Error from "@/components/ui/Error";
 
 // Performance Monitor
 const performanceMonitor = {
@@ -41,87 +40,106 @@ class BackgroundSDKLoader {
       if (import.meta.env.DEV) {
         console.log('SDK initialized successfully');
       }
-}
+    }
   }
 }
-// Global error boundary component with proper hook usage
-function FastErrorBoundary({ children, fallback }) {
-  const [hasError, setHasError] = React.useState(false);
-  const [error, setError] = React.useState(null);
-  const [errorInfo, setErrorInfo] = React.useState(null);
-
-  React.useEffect(() => {
-    const handleError = (event) => {
-      console.error('Global error caught:', event.error);
-      setHasError(true);
-      setError(event.error);
-      setErrorInfo({ componentStack: event.error?.stack || 'Unknown' });
+// Global error boundary component using class-based approach
+class FastErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null
     };
-
-    const handleUnhandledRejection = (event) => {
-      console.error('Unhandled promise rejection:', event.reason);
-      setHasError(true);
-      setError(event.reason);
-      setErrorInfo(event.reason?.stack || 'No stack trace available');
-    };
-
-    const handleReactError = (error, errorInfo) => {
-      console.error('React error caught:', error, errorInfo);
-      setHasError(true);
-      setError(error);
-      setErrorInfo(errorInfo?.componentStack || 'No component stack available');
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
     
-    // Handle React errors
-    const originalConsoleError = console.error;
-    console.error = (...args) => {
-      if (args[0]?.includes?.('React') || args[0]?.includes?.('Warning')) {
-        handleReactError(args[0], { componentStack: args[1] });
-      }
-      originalConsoleError.apply(console, args);
-    };
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-      console.error = originalConsoleError;
-    };
-  }, []);
-
-  if (hasError) {
-    return fallback || (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
-          <p className="text-gray-600 mb-4">
-            We're sorry, but there was an error loading the application.
-          </p>
-          {import.meta.env.DEV && (
-            <details className="text-left mb-4 p-3 bg-gray-50 rounded text-sm">
-              <summary className="cursor-pointer text-gray-700 font-medium">
-                Error Details (Development)
-              </summary>
-              <pre className="mt-2 text-xs text-red-600 overflow-auto">
-                {error?.message || 'Unknown error'}
-                {errorInfo && `\n\n${errorInfo}`}
-              </pre>
-            </details>
-          )}
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-          >
-            Reload Page
-          </button>
-        </div>
-      </div>
-    );
+    // Set up global error handlers
+    this.setupGlobalErrorHandlers();
   }
 
-  return children;
+  setupGlobalErrorHandlers() {
+    // Handle unhandled errors
+    window.addEventListener('error', this.handleGlobalError);
+    window.addEventListener('unhandledrejection', this.handleUnhandledRejection);
+  }
+
+  handleGlobalError = (event) => {
+    console.error('Global error caught:', event.error);
+    this.setState({
+      hasError: true,
+      error: event.error,
+      errorInfo: { componentStack: event.error?.stack || 'Unknown' }
+    });
+  };
+
+  handleUnhandledRejection = (event) => {
+    console.error('Unhandled promise rejection:', event.reason);
+    this.setState({
+      hasError: true,
+      error: event.reason,
+      errorInfo: { componentStack: event.reason?.stack || 'No stack trace available' }
+    });
+  };
+
+  static getDerivedStateFromError(error) {
+    // Update state so the next render will show the fallback UI
+    return {
+      hasError: true,
+      error: error
+    };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('React error caught:', error, errorInfo);
+    this.setState({
+      hasError: true,
+      error: error,
+      errorInfo: errorInfo
+    });
+  }
+
+  componentWillUnmount() {
+    // Clean up global error handlers
+    window.removeEventListener('error', this.handleGlobalError);
+    window.removeEventListener('unhandledrejection', this.handleUnhandledRejection);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const { fallback } = this.props;
+      const { error, errorInfo } = this.state;
+      
+      return fallback || (
+        <div className="flex items-center justify-center min-h-screen bg-gray-100">
+          <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+            <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
+            <p className="text-gray-600 mb-4">
+              We're sorry, but there was an error loading the application.
+            </p>
+            {import.meta.env.DEV && (
+              <details className="text-left mb-4 p-3 bg-gray-50 rounded text-sm">
+                <summary className="cursor-pointer text-gray-700 font-medium">
+                  Error Details (Development)
+                </summary>
+                <pre className="mt-2 text-xs text-red-600 overflow-auto">
+                  {error?.message || 'Unknown error'}
+                  {errorInfo && `\n\n${errorInfo.componentStack || errorInfo}`}
+                </pre>
+              </details>
+            )}
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
+            >
+              Reload Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
 }
 
 // Initialize app
