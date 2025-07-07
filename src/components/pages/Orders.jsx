@@ -157,6 +157,94 @@ const Orders = () => {
                 )}
               </div>
             </div>
+{/* Payment Information */}
+            {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
+              <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Payment Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <ApperIcon name="CreditCard" size={14} className="text-gray-500" />
+                      <span className="text-sm text-gray-600 capitalize">
+                        {order.paymentMethod.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <ApperIcon name="CheckCircle" size={14} className="text-gray-500" />
+                      <span className={`text-sm capitalize ${
+                        order.verificationStatus === 'verified' ? 'text-green-600' :
+                        order.verificationStatus === 'rejected' ? 'text-red-600' :
+                        'text-orange-600'
+                      }`}>
+                        Payment {order.verificationStatus || 'pending_verification'}
+                      </span>
+                    </div>
+                    {order.transactionId && (
+                      <div className="flex items-center space-x-2">
+                        <ApperIcon name="Hash" size={14} className="text-gray-500" />
+                        <span className="text-xs text-gray-500 font-mono">
+                          TID{order.transactionId}
+                        </span>
+                      </div>
+                    )}
+                    {order.paymentResult?.gatewayResponse?.reference && (
+                      <div className="flex items-center space-x-2">
+                        <ApperIcon name="ExternalLink" size={14} className="text-gray-500" />
+                        <span className="text-xs text-gray-500">
+                          Gateway Ref: {order.paymentResult.gatewayResponse.reference}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {(order.paymentProof || order.paymentProofUrl) && (
+                    <div>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <ApperIcon name="FileText" size={14} className="text-gray-500" />
+                        <span className="text-sm text-gray-600">Payment proof uploaded</span>
+                      </div>
+                      <div className="relative group inline-block">
+                        <img
+                          src={order.paymentProofThumbnailUrl || order.paymentProofUrl || `/api/payment-proofs/thumbnails/${order.paymentProof?.fileName || 'default.jpg'}`}
+                          alt="Payment proof thumbnail"
+                          className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                          onClick={() => {
+                            const fullImageUrl = order.paymentProofUrl || `/api/payment-proofs/${order.paymentProof?.fileName || 'default.jpg'}`;
+                            const modal = document.createElement('div');
+                            modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                            modal.innerHTML = `
+                              <div class="relative max-w-4xl max-h-full">
+                                <img src="${fullImageUrl}" alt="Payment proof fullscreen" class="max-w-full max-h-full rounded-lg" />
+                                <button class="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg transition-colors">
+                                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                  </svg>
+                                </button>
+                              </div>
+                            `;
+                            modal.onclick = (e) => {
+                              if (e.target === modal || e.target.closest('button')) {
+                                document.body.removeChild(modal);
+                              }
+                            };
+                            document.body.appendChild(modal);
+                          }}
+                          onError={(e) => {
+                            e.target.src = '/placeholder-image.jpg';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-1 rounded">
+                            <ApperIcon name="ZoomIn" size={16} className="text-white" />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Payment proof thumbnail</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Order Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -180,7 +268,7 @@ const Orders = () => {
                   <span>View Details</span>
                 </Link>
                 
-<button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors">
+                <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors">
                   <ApperIcon name="MessageCircle" size={16} />
                   <span>Chat Support</span>
                 </button>
@@ -194,6 +282,7 @@ const Orders = () => {
               </div>
             </div>
           </div>
+        ))}
         ))}
       </div>
     </div>

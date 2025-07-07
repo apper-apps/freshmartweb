@@ -257,11 +257,11 @@ async getPendingVerifications() {
         orderId: order?.id,
         transactionId: order?.transactionId || `TXN${order?.id}${Date.now().toString().slice(-4)}`,
         amount: order?.total || order?.totalAmount || 0,
-        paymentMethod: order?.paymentMethod || 'unknown',
+paymentMethod: order?.paymentMethod || 'unknown',
         customerName: order?.deliveryAddress?.name || 'Unknown',
-        paymentProof: order?.paymentProofUrl || `/api/payment-proofs/${order?.paymentProofFileName || 'default.jpg'}`,
-        paymentProofThumbnail: order?.paymentProofThumbnailUrl || `/api/payment-proofs/thumbnails/${order?.paymentProofFileName || 'default.jpg'}`,
-        paymentProofFileName: order?.paymentProofFileName || 'unknown',
+        paymentProof: this.getPaymentProofUrl(order),
+        paymentProofThumbnail: this.getPaymentProofThumbnailUrl(order),
+        paymentProofFileName: order?.paymentProofFileName || order?.paymentProof?.fileName || 'unknown',
         submittedAt: order?.paymentProofSubmittedAt || order?.createdAt,
         verificationStatus: order?.verificationStatus || 'pending'
       }));
@@ -413,6 +413,31 @@ return {
       total: order.total,
       isCalculated: false
     };
+}
+
+  // Payment Proof URL Helper Methods
+  getPaymentProofUrl(order) {
+    if (order?.paymentProofUrl) {
+      return order.paymentProofUrl;
+    }
+    if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
+      const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
+      return `/api/payment-proofs/${fileName}`;
+    }
+    // Return a data URL for a placeholder image
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5JbWFnZSBub3QgZm91bmQ8L3RleHQ+Cjwvc3ZnPg==';
+  }
+
+  getPaymentProofThumbnailUrl(order) {
+    if (order?.paymentProofThumbnailUrl) {
+      return order.paymentProofThumbnailUrl;
+    }
+    if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
+      const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
+      return `/api/payment-proofs/thumbnails/${fileName}`;
+    }
+    // Return the same placeholder for thumbnails
+    return this.getPaymentProofUrl(order);
   }
 
   delay() {

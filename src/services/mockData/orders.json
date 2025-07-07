@@ -21,11 +21,14 @@
     "total": 640,
     "deliveryCharge": 150,
     "paymentMethod": "jazzcash",
-    "paymentProof": {
+"paymentProof": {
       "fileName": "payment_proof.jpg",
       "fileSize": 2048,
       "uploadedAt": "2024-01-15T10:30:00Z"
     },
+    "paymentProofUrl": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=800&h=600&fit=crop",
+    "paymentProofThumbnailUrl": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=200&h=150&fit=crop",
+    "paymentProofFileName": "payment_proof.jpg",
 "status": "delivered",
     "deliveryPersonId": 1,
     "deliveryStatus": "delivered",
@@ -68,11 +71,14 @@
     "total": 1470,
     "deliveryCharge": 150,
     "paymentMethod": "easypaisa",
-    "paymentProof": {
+"paymentProof": {
       "fileName": "easypaisa_receipt.jpg",
       "fileSize": 1524,
       "uploadedAt": "2024-01-16T14:15:00Z"
     },
+    "paymentProofUrl": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&h=600&fit=crop",
+    "paymentProofThumbnailUrl": "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=200&h=150&fit=crop",
+    "paymentProofFileName": "easypaisa_receipt.jpg",
 "status": "shipped",
     "deliveryPersonId": 2,
     "deliveryStatus": "out_for_delivery",
@@ -158,11 +164,14 @@
     "total": 1215,
     "deliveryCharge": 150,
     "paymentMethod": "bank",
-    "paymentProof": {
+"paymentProof": {
       "fileName": "bank_transfer.pdf",
       "fileSize": 3072,
       "uploadedAt": "2024-01-18T11:20:00Z"
     },
+    "paymentProofUrl": "https://images.unsplash.com/photo-1554224154-22dec7ec8818?w=800&h=600&fit=crop",
+    "paymentProofThumbnailUrl": "https://images.unsplash.com/photo-1554224154-22dec7ec8818?w=200&h=150&fit=crop",
+    "paymentProofFileName": "bank_transfer.pdf",
 "status": "confirmed",
     "deliveryPersonId": null,
     "deliveryStatus": "pending_assignment",
@@ -205,11 +214,14 @@
     "total": 1050,
     "deliveryCharge": 150,
     "paymentMethod": "jazzcash",
-    "paymentProof": {
+"paymentProof": {
       "fileName": "jazzcash_payment.jpg",
       "fileSize": 1800,
       "uploadedAt": "2024-01-19T15:30:00Z"
     },
+    "paymentProofUrl": "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=800&h=600&fit=crop",
+    "paymentProofThumbnailUrl": "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=200&h=150&fit=crop",
+    "paymentProofFileName": "jazzcash_payment.jpg",
 "status": "pending",
     "deliveryPersonId": null,
     "deliveryStatus": "pending_assignment",
@@ -245,11 +257,14 @@
     "total": 900,
     "deliveryCharge": 150,
     "paymentMethod": "easypaisa",
-    "paymentProof": {
+"paymentProof": {
       "fileName": "easypaisa_screenshot_order6.jpg",
       "fileSize": 2156,
       "uploadedAt": "2024-01-20T09:30:00Z"
     },
+    "paymentProofUrl": "https://images.unsplash.com/photo-1555421689-491a97ff2040?w=800&h=600&fit=crop",
+    "paymentProofThumbnailUrl": "https://images.unsplash.com/photo-1555421689-491a97ff2040?w=200&h=150&fit=crop",
+    "paymentProofFileName": "easypaisa_screenshot_order6.jpg",
     "status": "payment_pending",
     "verificationStatus": "pending",
     "deliveryPersonId": null,
@@ -293,11 +308,14 @@
     "total": 770,
     "deliveryCharge": 150,
     "paymentMethod": "jazzcash",
-    "paymentProof": {
+"paymentProof": {
       "fileName": "jazzcash_order7.jpg",
       "fileSize": 1920,
       "uploadedAt": "2024-01-21T10:15:00Z"
     },
+    "paymentProofUrl": "https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?w=800&h=600&fit=crop",
+    "paymentProofThumbnailUrl": "https://images.unsplash.com/photo-1608222351212-18fe0ec7b13b?w=200&h=150&fit=crop",
+    "paymentProofFileName": "jazzcash_order7.jpg",
     "status": "confirmed",
     "verificationStatus": "verified",
     "deliveryPersonId": null,
@@ -342,11 +360,14 @@
     "deliveryCharge": 150,
     "paymentMethod": "jazzcash",
     "transactionId": "JC2024012200001234",
-    "paymentProof": {
+"paymentProof": {
       "fileName": "jazzcash_payment_order8.jpg",
       "fileSize": 2048,
       "uploadedAt": "2024-01-22T14:30:00Z"
     },
+    "paymentProofUrl": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=800&h=600&fit=crop",
+    "paymentProofThumbnailUrl": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=200&h=150&fit=crop",
+    "paymentProofFileName": "jazzcash_payment_order8.jpg",
     "status": "payment_pending",
     "verificationStatus": "pending",
     "deliveryPersonId": null,
