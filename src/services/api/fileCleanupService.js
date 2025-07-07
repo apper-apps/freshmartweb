@@ -17,17 +17,28 @@ class FileCleanupService {
       spaceReclaimed: 0,
       errors: 0
     };
-    
-    // Slack integration configuration
-    this.slackConfig = {
-      criticalWebhook: process.env.SLACK_CRITICAL_WEBHOOK_URL || null,
-      warningWebhook: process.env.SLACK_WARNING_WEBHOOK_URL || null,
-      infoWebhook: process.env.SLACK_INFO_WEBHOOK_URL || null,
-      dailyReportWebhook: process.env.SLACK_DAILY_REPORT_WEBHOOK_URL || null,
-      enabled: process.env.SLACK_ALERTS_ENABLED === 'true' || false
+// Configuration from environment variables
+    this.config = {
+      cleanupInterval: parseInt(import.meta.env.VITE_CLEANUP_INTERVAL_HOURS) || 24, // Default: 24 hours
+      retentionPeriod: parseInt(import.meta.env.VITE_RETENTION_PERIOD_DAYS) || 30, // Default: 30 days
+      backupEnabled: import.meta.env.VITE_BACKUP_ENABLED === 'true',
+      slackWebhook: import.meta.env.VITE_SLACK_WEBHOOK_URL || '',
+      awsRegion: import.meta.env.VITE_AWS_REGION || 'us-east-1',
+      s3Bucket: import.meta.env.VITE_S3_BUCKET || 'freshmart-uploads',
+      r2Bucket: import.meta.env.VITE_R2_BUCKET || 'freshmart-backup',
+      maxFileSizeMB: parseInt(import.meta.env.VITE_MAX_FILE_SIZE_MB) || 10,
+      cloudFrontDistribution: import.meta.env.VITE_CLOUDFRONT_DISTRIBUTION_ID || ''
     };
     
-    // Alert tracking to prevent spam
+    // Slack configuration
+    this.slackConfig = {
+      enabled: import.meta.env.VITE_SLACK_ALERTS_ENABLED === 'true',
+      criticalWebhook: import.meta.env.VITE_SLACK_CRITICAL_WEBHOOK || '',
+      warningWebhook: import.meta.env.VITE_SLACK_WARNING_WEBHOOK || '',
+      infoWebhook: import.meta.env.VITE_SLACK_INFO_WEBHOOK || '',
+      dailyReportWebhook: import.meta.env.VITE_SLACK_DAILY_REPORT_WEBHOOK || ''
+    };
+    
     this.alertThrottling = {
       lastProofRetrievalAlert: null,
       alertCount: 0,
@@ -965,8 +976,14 @@ class FileCleanupService {
 // Create singleton instance
 export const fileCleanupService = new FileCleanupService();
 
-// Auto-start cleanup service in production
-if (typeof window === 'undefined') { // Node.js environment
-  fileCleanupService.serviceStartTime = new Date();
-  fileCleanupService.startCleanupService();
+// Auto-start cleanup service only in appropriate server environments
+// Prevent execution in browser context
+if (typeof window === 'undefined' && typeof process !== 'undefined' && process.env.NODE_ENV) {
+  // Only start in actual Node.js server environment
+  try {
+    fileCleanupService.serviceStartTime = new Date();
+    fileCleanupService.startCleanupService();
+  } catch (error) {
+    console.warn('FileCleanupService: Unable to start in current environment:', error.message);
+  }
 }
