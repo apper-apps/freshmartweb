@@ -1,8 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
-import storage from 'redux-persist/lib/storage/session';
-import cartReducer from './cartSlice';
-
+import storage from 'redux-persist/lib/storage';
+import cartReducer from '@/store/cartSlice';
 const persistConfig = {
   key: 'freshmart_cart',
   storage,
