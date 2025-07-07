@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { toast } from "react-hot-toast";
+import { toast } from "react-toastify";
 import React from "react";
 import Error from "@/components/ui/Error";
 import productService from "@/services/api/productService";
