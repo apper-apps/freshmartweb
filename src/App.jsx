@@ -15,6 +15,7 @@ import Cart from "@/components/pages/Cart";
 import Checkout from "@/components/pages/Checkout";
 import Home from "@/components/pages/Home";
 import { fileCleanupService } from "@/services/api/fileCleanupService";
+// Direct imports for core components
 
 // Lazy loaded components for better performance with error boundaries
 const AdminDashboard = React.lazy(() => import("@/components/pages/AdminDashboard"));
@@ -31,34 +32,6 @@ const Orders = React.lazy(() => import("@/components/pages/Orders"));
 const OrderTracking = React.lazy(() => import("@/components/pages/OrderTracking"));
 const Account = React.lazy(() => import("@/components/pages/Account"));
 
-// SDK and external service utilities
-const checkSDKStatus = async () => {
-  try {
-    // Simulate SDK availability check
-    const response = await fetch('/api/health', { 
-      method: 'GET',
-      timeout: 5000
-    });
-    return response.ok;
-  } catch (error) {
-    console.warn('SDK status check failed:', error);
-    return false;
-  }
-};
-
-const refreshAuthToken = async () => {
-  try {
-    // Simulate token refresh
-    const response = await fetch('/api/auth/refresh', {
-      method: 'POST',
-      credentials: 'include'
-    });
-    return response.ok;
-  } catch (error) {
-    console.error('Token refresh failed:', error);
-    return false;
-  }
-};
 
 // Error boundary component for lazy-loaded routes
 const LazyErrorBoundary = ({ children, fallback }) => {
@@ -84,6 +57,20 @@ function App() {
     nextBackup: null,
     isRunning: false
   });
+
+// SDK Status Check - Memoized to prevent infinite re-renders
+  const checkSDKStatus = useCallback(async () => {
+    try {
+      // Check if SDK is available and initialized
+      if (typeof window !== 'undefined' && window.SDK) {
+        return { ready: true, initialized: true };
+      }
+      return { ready: false, initialized: false };
+    } catch (error) {
+      console.error('SDK status check failed:', error);
+      return { ready: false, initialized: false, error: error.message };
+    }
+  }, []); // Empty dependency array since this function doesn't depend on any props or state
 
   // Token refresh functionality
   const refreshAuthToken = useCallback(async () => {
@@ -167,22 +154,35 @@ function App() {
   }, []);
 
 // Optimized SDK monitoring - non-blocking and lightweight
+// SDK Status Effect - Fixed to prevent infinite re-renders
   useEffect(() => {
     let mounted = true;
     let checkCount = 0;
     
-    const checkStatus = () => {
+    const checkStatus = async () => {
       if (!mounted || checkCount > 5) return; // Limit checks to prevent performance impact
       
-      const status = checkSDKStatus();
-      if (status.ready || status.initialized) {
-        setSdkReady(true);
-        setSdkError(null);
-      } else if (checkCount === 5) {
-        // After 5 attempts, just warn but don't block the app
-        console.warn('SDK not ready after initial checks - continuing without it');
+      try {
+        const status = await checkSDKStatus();
+        if (!mounted) return; // Check if still mounted after async operation
+        
+        if (status?.ready || status?.initialized) {
+          setSdkReady(true);
+          setSdkError(null);
+        } else if (status?.error) {
+          setSdkError(status.error);
+        } else if (checkCount === 5) {
+          // After 5 attempts, just warn but don't block the app
+          console.warn('SDK not ready after initial checks - continuing without it');
+          setSdkReady(false);
+        }
+        checkCount++;
+      } catch (error) {
+        if (mounted) {
+          console.error('SDK status check error:', error);
+          setSdkError(error.message);
+        }
       }
-      checkCount++;
     };
 
     // Check immediately and then periodically
@@ -201,7 +201,7 @@ function App() {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [checkSDKStatus]);
+  }, [checkSDKStatus]); // Now properly memoized, won't cause infinite re-renders
 
 // Lightweight error handling - don't block the app for SDK errors
   useEffect(() => {
@@ -216,6 +216,7 @@ function App() {
     return () => window.removeEventListener('unhandledrejection', handleError);
   }, []);
 // Memoized SDK utilities for performance
+// SDK Utils - Properly memoized with stable dependencies
   const sdkUtils = useMemo(() => ({
     ready: sdkReady,
     error: sdkError,
@@ -239,14 +240,14 @@ function App() {
 // Set up React Modal root element for accessibility
   useEffect(() => {
     Modal.setAppElement('#root');
-  }, []);
+}, []);
 
-return (
+  return (
     <Provider store={store}>
       <PersistGate loading={<Loading type="page" />} persistor={persistor}>
         <BrowserRouter>
           <div className="min-h-screen bg-background">
-{/* Enhanced Status Indicators (only in development) */}
+            {/* Enhanced Status Indicators (only in development) */}
             {import.meta.env.DEV && (
               <div className="fixed top-0 right-0 z-50 p-2 text-xs space-y-1">
                 {sdkError && (
@@ -266,9 +267,10 @@ return (
                 )}
               </div>
             )}
-<Suspense fallback={<Loading type="page" />}>
+            
+            <Suspense fallback={<Loading type="page" />}>
               <Routes>
-                <Route path="/" element={<Layout />} errorElement={<div className="min-h-screen flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2><p className="text-gray-600">Please refresh the page and try again.</p></div></div>}>
+                <Route path="/" element={<Layout />}>
                   {/* Core routes - no lazy loading */}
                   <Route index element={<Home />} />
                   <Route path="product/:productId" element={<ProductDetail />} />
@@ -296,13 +298,11 @@ return (
                       <Account />
                     </Suspense>
                   } />
-                  
-{/* Heavy admin routes - lazy loaded */}
-                  <Route path="admin" element={
+                  <Route path="admin/dashboard" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <AdminDashboard />
                     </Suspense>
-                  } errorElement={<div className="min-h-screen flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-gray-900 mb-2">Admin Dashboard Error</h2><p className="text-gray-600">Unable to load admin dashboard. Please check your connection and try again.</p></div></div>} />
+                  } />
                   <Route path="admin/products" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <ProductManagement />
@@ -333,7 +333,7 @@ return (
                       <PaymentManagement />
                     </Suspense>
                   } />
-<Route path="admin/ai-generate" element={
+                  <Route path="admin/ai-generate" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <AIGenerate />
                     </Suspense>
@@ -346,6 +346,7 @@ return (
                 </Route>
               </Routes>
             </Suspense>
+            
             <ToastContainer
               position="top-right"
               autoClose={3000}
@@ -360,11 +361,11 @@ return (
               style={{ zIndex: 9999 }}
               limit={3}
             />
-</div>
+          </div>
         </BrowserRouter>
       </PersistGate>
     </Provider>
-);
+  );
 }
 
 export default App;
