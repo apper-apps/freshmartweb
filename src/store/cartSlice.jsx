@@ -1,5 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { toast } from "react-hot-toast";
+import React from "react";
+import Error from "@/components/ui/Error";
 import productService from "@/services/api/productService";
 
 // Initial state
@@ -306,9 +308,6 @@ export const {
   clearError,
   updatePricesFromValidation
 } = cartSlice.actions;
-
-// Export async thunks
-export { validateCartPrices, addToCartWithValidation, updateQuantityWithValidation };
 
 // Selectors
 export const selectCartItems = (state) => state.cart.items;
