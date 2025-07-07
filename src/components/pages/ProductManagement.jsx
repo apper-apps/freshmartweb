@@ -2224,14 +2224,15 @@ const UnsplashImageSearch = ({
           
           <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
             <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
-          </div>
+</div>
         </div>
       </div>
     </div>
-</div>
   );
-  // Enhanced image viewing and download handlers
-  const handleImageView = (image) => {
+};
+  
+// Enhanced image viewing and download handlers
+const handleImageView = (image) => {
     setModalViewer({
       isOpen: true,
       image: image,
@@ -2301,7 +2302,6 @@ const UnsplashImageSearch = ({
   });
 
   const [downloadStatus, setDownloadStatus] = useState({});
-};
 
 // Modal Image Viewer Component with Error Boundaries
 const ModalImageViewer = () => {
