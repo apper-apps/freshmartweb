@@ -222,10 +222,11 @@ async getPaymentMethods() {
         orderId,
         amount,
         paymentMethod: walletType,
-        phone,
+phone,
         status: 'completed',
         transactionId,
-processingFee: 0,
+        timestamp: new Date().toISOString(),
+        processingFee: 0,
         gatewayResponse: paymentResult.gatewayResponse || {
           walletTransactionId: paymentResult.walletTransactionId,
           reference: paymentResult.reference,
@@ -375,10 +376,9 @@ async processEasyPaisaPayment(amount, phone) {
         message: `EasyPaisa is not supported for ${network} numbers. Please use a Jazz, Telenor, Zong, Ufone, or Warid number.`,
         code: 'UNSUPPORTED_NETWORK_EASYPAISA',
         category: 'validation',
-        retryable: false
+retryable: false
       };
     }
-}
 
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 1800));
@@ -529,10 +529,7 @@ async processEasyPaisaPayment(amount, phone) {
       reference: success ? `${walletType.toUpperCase()}_${this.generateReference()}` : null,
       gatewayStatus: success ? 'success' : 'failed',
       gatewayMessage: success ? `${walletType} payment processed successfully` : `${walletType} payment failed`
-    };
-  }
-    this.transactions.push(transaction);
-    return { ...transaction };
+};
   }
 
   // Payment Verification
@@ -671,13 +668,12 @@ async getAvailablePaymentMethods() {
     }
 
     return { valid: true };
-  }
-getCardBrand(cardNumber) {
-getCardBrand(cardNumber) {
+}
+
+  getCardBrand(cardNumber) {
     const firstDigit = cardNumber.charAt(0);
     return this.cardBrands[firstDigit] || 'unknown';
   }
-
   calculateDigitalWalletFee(amount) {
     const feePercent = 0.01; // 1%
     const minimumFee = 5;
