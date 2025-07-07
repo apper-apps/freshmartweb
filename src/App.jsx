@@ -1,11 +1,11 @@
-import 'react-toastify/dist/ReactToastify.css';
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import { Provider } from "react-redux";
-import { PersistGate } from "redux-persist/integration/react";
-import Modal from "react-modal";
-import { persistor, store } from "@/store/index";
+import 'react-toastify/dist/ReactToastify.css'
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
+import { Provider } from 'react-redux'
+import { PersistGate } from 'redux-persist/integration/react'
+import Modal from 'react-modal'
+import { persistor, store } from '@/store/index'
 import Layout from "@/components/organisms/Layout";
 import Loading from "@/components/ui/Loading";
 // Direct imports for core components
