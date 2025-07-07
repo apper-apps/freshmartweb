@@ -1,4 +1,6 @@
 import ordersData from "../mockData/orders.json";
+import React from "react";
+import Error from "@/components/ui/Error";
 import { paymentService } from "@/services/api/paymentService";
 class OrderService {
   constructor() {
@@ -413,16 +415,11 @@ return {
 }
 
 // Payment Proof URL Helper Methods
+// Payment Proof URL Helper Methods
   getPaymentProofUrl(order) {
-    // Check for direct URL first
-    if (order?.paymentProofUrl) {
+    // Check for direct URL first - this should be the primary source
+    if (order?.paymentProofUrl && order.paymentProofUrl !== '') {
       return order.paymentProofUrl;
-    }
-    
-    // Check for file-based URLs
-    if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
-      const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
-      return `/api/payment-proofs/${fileName}`;
     }
     
     // Check for base64 or data URLs in paymentProof field
@@ -430,24 +427,38 @@ return {
       return order.paymentProof;
     }
     
-    // Return a data URL for a placeholder image when no payment proof is available
+    // Check for file-based URLs only if no direct URL is available
+    if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
+      const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
+      return `/api/payment-proofs/${fileName}`;
+    }
+    
+    // Return a placeholder only when absolutely no payment proof is available
     return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==';
   }
 
   getPaymentProofThumbnailUrl(order) {
-    // Check for dedicated thumbnail URL first
-    if (order?.paymentProofThumbnailUrl) {
+    // Check for dedicated thumbnail URL first - this should be the primary source
+    if (order?.paymentProofThumbnailUrl && order.paymentProofThumbnailUrl !== '') {
       return order.paymentProofThumbnailUrl;
+    }
+    
+    // Fall back to the main payment proof URL for thumbnails
+    const mainUrl = this.getPaymentProofUrl(order);
+    
+    // If we have a real image URL (not placeholder), use it as thumbnail
+    if (mainUrl && !mainUrl.startsWith('data:image/svg+xml')) {
+      return mainUrl;
     }
     
     // Check for file-based thumbnail URLs
     if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
       const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
       return `/api/payment-proofs/thumbnails/${fileName}`;
-    }
+}
     
-    // Fall back to the main payment proof URL for thumbnails
-    return this.getPaymentProofUrl(order);
+    // Return the main URL (which could be placeholder)
+    return mainUrl;
   }
 
   delay() {
