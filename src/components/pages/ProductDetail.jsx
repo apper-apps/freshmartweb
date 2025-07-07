@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
-import { useCart } from "@/hooks/useCart";
-import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
-import Button from "@/components/atoms/Button";
+import React, { useEffect, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'react-toastify'
+import useCart from "@/hooks/useCart";
+import ApperIcon from '@/components/ApperIcon'
+import Badge from '@/components/atoms/Badge'
+import Button from '@/components/atoms/Button'
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Cart from "@/components/pages/Cart";
