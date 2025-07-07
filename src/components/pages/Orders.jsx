@@ -77,9 +77,10 @@ const Orders = () => {
           <div key={order.id} className="card p-6 hover:shadow-premium transition-shadow duration-300">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
               <div className="flex items-center space-x-4 mb-4 lg:mb-0">
-                <div className="bg-gradient-to-r from-primary to-accent p-3 rounded-lg">
+<div className="bg-gradient-to-r from-primary to-accent p-3 rounded-lg">
                   <ApperIcon name="Package" size={24} className="text-white" />
-<div>
+                </div>
+                <div>
                   <h3 className="text-lg font-semibold text-gray-900">
                     Order #{order.id}
                   </h3>
@@ -93,8 +94,7 @@ const Orders = () => {
                   )}
                 </div>
               </div>
-              </div>
-<div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4">
                   <OrderStatusBadge status={order.status} />
                   {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
                     <div className="flex items-center space-x-1">
@@ -116,9 +116,9 @@ const Orders = () => {
                           Pending Verification
                         </span>
                       )}
-                    </div>
+</div>
                   )}
-<div className="text-right">
+                <div className="text-right">
                   <p className="text-xl font-bold gradient-text">
                     Rs. {(() => {
                       // Calculate subtotal if order total is missing or zero
@@ -137,8 +137,7 @@ const Orders = () => {
                   </p>
                 </div>
               </div>
-              </div>
-
+            </div>
             {/* Order Items Preview */}
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -156,8 +155,9 @@ const Orders = () => {
                   </div>
                 )}
               </div>
-            </div>
-{/* Payment Information */}
+</div>
+
+            {/* Payment Information */}
             {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
               <div className="bg-blue-50 rounded-lg p-4 mb-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Payment Information</h4>
@@ -201,59 +201,56 @@ const Orders = () => {
                     <div>
                       <div className="flex items-center space-x-2 mb-2">
                         <ApperIcon name="FileText" size={14} className="text-gray-500" />
-                        <span className="text-sm text-gray-600">Payment proof uploaded</span>
+<span className="text-sm text-gray-600">Payment proof uploaded</span>
                       </div>
-<div className="relative group inline-block">
-                        <img
-                          src={(() => {
-                            // Import orderService for consistent URL generation
-                            const { orderService } = require('@/services/api/orderService');
-                            return orderService.getPaymentProofThumbnailUrl(order);
-                          })()}
-                          alt="Payment proof thumbnail"
-                          className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
-                          onClick={() => {
-                            const { orderService } = require('@/services/api/orderService');
-                            const fullImageUrl = orderService.getPaymentProofUrl(order);
-                            const modal = document.createElement('div');
-                            modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                            modal.innerHTML = `
-                              <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden">
-                                <div class="relative">
-                                  <img src="${fullImageUrl}" alt="Payment proof fullscreen" class="max-w-full max-h-[80vh] mx-auto block" />
-                                  <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition-colors">
-                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                    </svg>
-                                  </button>
+                      {order.paymentProof && (
+                        <div className="relative group">
+                          <img
+                            className="w-16 h-16 object-cover rounded border cursor-pointer"
+                            src={orderService.getPaymentProofThumbnailUrl(order)}
+                            alt="Payment Proof"
+                            onClick={() => {
+                              const fullImageUrl = orderService.getPaymentProofUrl(order);
+                              const modal = document.createElement('div');
+                              modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                              modal.innerHTML = `
+                                <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden">
+                                  <div class="relative">
+                                    <img src="${fullImageUrl}" alt="Payment proof fullscreen" class="max-w-full max-h-[80vh] mx-auto block" />
+                                    <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition-colors">
+                                      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                      </svg>
+                                    </button>
+                                  </div>
+                                  <div class="p-4 bg-gray-50 text-center">
+                                    <p class="text-sm text-gray-600">Payment Proof - Order #${order.id}</p>
+                                    <p class="text-xs text-gray-500 mt-1">Transaction: ${order.transactionId || 'N/A'}</p>
+                                  </div>
                                 </div>
-                                <div class="p-4 bg-gray-50 text-center">
-                                  <p class="text-sm text-gray-600">Payment Proof - Order #${order.id}</p>
-                                  <p class="text-xs text-gray-500 mt-1">Transaction: ${order.transactionId || 'N/A'}</p>
-                                </div>
-                              </div>
-                            `;
-                            modal.onclick = (e) => {
-                              if (e.target === modal || e.target.closest('button')) {
-                                document.body.removeChild(modal);
-                                document.body.style.overflow = '';
-                              }
-                            };
-                            document.body.style.overflow = 'hidden';
-                            document.body.appendChild(modal);
-                          }}
-                          onError={(e) => {
-                            console.warn('Failed to load payment proof thumbnail:', e.target.src);
-                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-                            e.target.alt = 'Payment proof image not available';
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-1 rounded">
-                            <ApperIcon name="ZoomIn" size={16} className="text-white" />
+                              `;
+                              modal.onclick = (e) => {
+                                if (e.target === modal || e.target.closest('button')) {
+                                  document.body.removeChild(modal);
+                                  document.body.style.overflow = '';
+                                }
+                              };
+                              document.body.style.overflow = 'hidden';
+                              document.body.appendChild(modal);
+                            }}
+                            onError={(e) => {
+                              console.warn('Failed to load payment proof thumbnail:', e.target.src);
+                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+                              e.target.alt = 'Payment proof image not available';
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-1 rounded">
+                              <ApperIcon name="ZoomIn" size={16} className="text-white" />
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      )}
                       <p className="text-xs text-gray-500 mt-1">Payment proof thumbnail</p>
                     </div>
                   )}
@@ -297,8 +294,7 @@ const Orders = () => {
               </div>
             </div>
           </div>
-        ))}
-        ))}
+))}
       </div>
     </div>
   );
