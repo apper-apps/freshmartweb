@@ -37,12 +37,16 @@ const loadDashboardData = async () => {
     setLoading(true);
     setError(null);
     
-try {
+    try {
       // Load products and check for low stock
-      const products = await getAllProducts();
+      const productsResponse = await getAllProducts();
       const orders = await orderService.getAll();
+      
+      // Extract products array from response and ensure it's an array
+      const products = productsResponse?.data || [];
+      
       // Calculate low stock products (stock < 10)
-      const lowStock = (products || []).filter(product => (product?.stock || 0) < 10);
+      const lowStock = products.filter(product => (product?.stock || 0) < 10);
       setLowStockProducts(lowStock || []);
       
       // Get today's orders
