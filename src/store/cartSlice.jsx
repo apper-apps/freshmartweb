@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { productService } from '@/services/api/productService';
+import productService from '@/services/api/productService';
 import { toast } from 'react-toastify';
 
 const initialState = {
