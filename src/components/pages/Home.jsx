@@ -22,18 +22,20 @@ useEffect(() => {
     return () => clearTimeout(preloadTimer);
   }, []);
 
-  const loadFeaturedProducts = async () => {
+const loadFeaturedProducts = async () => {
     try {
       setLoading(true);
       setError(null);
       
       // Optimize for perceived performance - show loading state immediately
-      const products = await productService.getAll();
+      const response = await productService.getAll();
+      
+      // Extract products array from service response
+      const products = response?.data || [];
       
       // Get first 8 products as featured, with intelligent caching
       const featured = products.slice(0, 8);
       setFeaturedProducts(featured);
-      
 // Cache products for faster subsequent loads
       if ('caches' in window && window.caches) {
         window.caches.open('products-v1').then(cache => {
