@@ -2,9 +2,10 @@ import ordersData from "../mockData/orders.json";
 import React from "react";
 import Error from "@/components/ui/Error";
 import { paymentService } from "@/services/api/paymentService";
+
 class OrderService {
   constructor() {
-    this.orders = [...ordersData];
+    this.orders = [...(ordersData || [])];
   }
 
   async getAll() {
@@ -12,7 +13,7 @@ class OrderService {
     return [...this.orders];
   }
 
-async getById(id) {
+  async getById(id) {
     await this.delay();
     const order = this.orders.find(o => o.id === id);
     if (!order) {
@@ -106,7 +107,7 @@ this.orders.splice(index, 1);
     const maxId = this.orders.reduce((max, order) => 
       order.id > max ? order.id : max, 0);
     return maxId + 1;
-  }
+}
   async assignDeliveryPersonnel(orderId, deliveryPersonId) {
     await this.delay();
     const order = await this.getById(orderId);
@@ -137,7 +138,7 @@ this.orders.splice(index, 1);
 return this.orders.filter(order => order.deliveryStatus === deliveryStatus);
   }
 
-// Payment Integration Methods
+  // Payment Integration Methods
   async updatePaymentStatus(orderId, paymentStatus, paymentResult = null) {
     await this.delay();
     const order = await this.getById(orderId);
@@ -235,7 +236,7 @@ async getMonthlyRevenue() {
       const orderDate = new Date(order.createdAt);
       return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
 });
-return monthlyOrders.reduce((sum, order) => sum + (order?.total || order?.totalAmount || 0), 0);
+    return monthlyOrders.reduce((sum, order) => sum + (order?.total || order?.totalAmount || 0), 0);
   }
   async getRevenueByPaymentMethod() {
     await this.delay();

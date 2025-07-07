@@ -244,7 +244,7 @@ return (
             )}
 <Suspense fallback={<Loading type="page" />}>
               <Routes>
-                <Route path="/" element={<Layout />}>
+                <Route path="/" element={<Layout />} errorElement={<div className="min-h-screen flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h2><p className="text-gray-600">Please refresh the page and try again.</p></div></div>}>
                   {/* Core routes - no lazy loading */}
                   <Route index element={<Home />} />
                   <Route path="product/:productId" element={<ProductDetail />} />
@@ -273,12 +273,12 @@ return (
                     </Suspense>
                   } />
                   
-                  {/* Heavy admin routes - lazy loaded */}
+{/* Heavy admin routes - lazy loaded */}
                   <Route path="admin" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <AdminDashboard />
                     </Suspense>
-                  } />
+                  } errorElement={<div className="min-h-screen flex items-center justify-center"><div className="text-center"><h2 className="text-xl font-bold text-gray-900 mb-2">Admin Dashboard Error</h2><p className="text-gray-600">Unable to load admin dashboard. Please check your connection and try again.</p></div></div>} />
                   <Route path="admin/products" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <ProductManagement />

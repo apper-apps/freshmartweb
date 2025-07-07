@@ -4,7 +4,7 @@ import productsData from "@/services/mockData/products.json";
 
 class ProductService {
   constructor() {
-    this.products = [...productsData];
+    this.products = [...(productsData || [])];
   }
 
   async getAll() {
@@ -106,8 +106,9 @@ class ProductService {
     const maxId = this.products.reduce((max, product) => 
       product.id > max ? product.id : max, 0);
     return maxId + 1;
-  }
-async bulkUpdatePrices(updateData) {
+}
+
+  async bulkUpdatePrices(updateData) {
     await this.delay(500); // Longer delay for bulk operations
     const validation = this.validateBulkPriceUpdate(updateData);
     if (!validation.isValid) {
@@ -200,10 +201,8 @@ async bulkUpdatePrices(updateData) {
         return { isValid: false, error: 'Update value must be a valid number' };
       }
     }
-
-    return { isValid: true };
-}
-
+return { isValid: true };
+  }
   delay(ms = 150) { // Reduced delay for faster perceived performance
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -231,8 +230,8 @@ async bulkUpdatePrices(updateData) {
     // Calculate minimum selling price (purchase price + 10% margin)
     const minSellingPrice = purchasePrice > 0 ? purchasePrice * 1.1 : 0;
     
-    // Calculate profit margin percentage
-let profitMargin = 0;
+// Calculate profit margin percentage
+    let profitMargin = 0;
     if (purchasePrice > 0 && finalPrice > 0) {
       profitMargin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
     }
@@ -310,8 +309,8 @@ let profitMargin = 0;
       if (margin >= 5) return 'fair';
       if (margin > 0) return 'poor';
       return 'loss';
-    } catch (error) {
-console.error('Error calculating financial health:', error);
+} catch (error) {
+      console.error('Error calculating financial health:', error);
       return 'unknown';
     }
   }
@@ -384,7 +383,6 @@ console.error('Error calculating financial health:', error);
             textConfidence: textDetection.confidence
           });
         };
-        
 img.onerror = () => {
           resolve({ isValid: false, error: 'Invalid or corrupted image file' });
         };
@@ -421,7 +419,6 @@ img.onerror = () => {
     const mean = sum / pixelCount;
     const variance = (sumSquared / pixelCount) - (mean * mean);
     const edgeIntensity = edgeSum / pixelCount;
-    
 // Combine variance and edge intensity for better blur detection
     return variance + (edgeIntensity * 0.5);
   }
@@ -606,8 +603,8 @@ img.onerror = () => {
       height = targetWidth / aspectRatio;
     } else {
       // Image is taller than target
-      height = targetHeight;
-width = targetHeight * aspectRatio;
+height = targetHeight;
+      width = targetHeight * aspectRatio;
     }
     return { width: Math.round(width), height: Math.round(height) };
   }
@@ -647,9 +644,9 @@ width = targetHeight * aspectRatio;
       return {
         width: 600,
         height: 600,
-        aspectRatio: '1:1'
+aspectRatio: '1:1'
       };
-}
+    }
   }
 
   // Enhanced image search from multiple sources with category filtering and attribution
@@ -706,10 +703,10 @@ width = targetHeight * aspectRatio;
     
     return baseImages;
   }
+}
 
-// Enhanced Unsplash search with comprehensive category mapping and attribution
+  // Enhanced Unsplash search with comprehensive category mapping and attribution
   searchUnsplashImages(query, options = {}) {
-    const { category, orientation, loadMore } = options;
     
     // Comprehensive category-specific search terms for enhanced food discovery
     const categoryMappings = {
@@ -767,8 +764,8 @@ width = targetHeight * aspectRatio;
     return mockUnsplashImages;
   }
 
-  // Generate relevant tags for image categorization
-// Enhanced tag generation for comprehensive image categorization
+// Generate relevant tags for image categorization
+  // Enhanced tag generation for comprehensive image categorization
   generateImageTags(query, category) {
     const baseTags = query.toLowerCase().split(' ');
     
@@ -786,7 +783,6 @@ width = targetHeight * aspectRatio;
       'snacks': ['crunchy', 'satisfying', 'portable', 'tasty', 'convenient', 'wholesome', 'guilt-free'],
       
       // Legacy support
-      'Fresh Vegetables': ['organic', 'healthy', 'green', 'fresh', 'natural'],
 'Fresh Vegetables': ['organic', 'healthy', 'green', 'fresh', 'natural'],
       'Tropical Fruits': ['colorful', 'exotic', 'sweet', 'vitamin', 'tropical'],
       'Dairy Products': ['creamy', 'calcium', 'protein', 'fresh', 'natural'],
@@ -810,7 +806,6 @@ width = targetHeight * aspectRatio;
     }));
   }
 
-  // AI Image Generation with Stable Diffusion simulation
 // AI Image Generation with Stable Diffusion simulation
   async generateAIImage(prompt, options = {}) {
     try {
@@ -983,9 +978,9 @@ width = targetHeight * aspectRatio;
     return {
       x: Math.max(0, mainRegion.x - 50),
       y: Math.max(0, mainRegion.y - 50),
-      width: Math.min(targetDimensions.width, mainRegion.width + 100),
+width: Math.min(targetDimensions.width, mainRegion.width + 100),
       height: Math.min(targetDimensions.height, mainRegion.height + 100)
-};
+    };
   }
 
   // Enhanced image URL validation for download safety
@@ -1138,6 +1133,6 @@ width = targetHeight * aspectRatio;
     }
 
     throw new Error(`Download failed after ${maxRetries} attempts. Last error: ${lastError.message}`);
+throw new Error(`Download failed after ${maxRetries} attempts. Last error: ${lastError.message}`);
   }
 }
-export const productService = new ProductService();

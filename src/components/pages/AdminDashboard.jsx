@@ -35,51 +35,54 @@ const [revenueBreakdown, setRevenueBreakdown] = useState([]);
 
   const loadDashboardData = async () => {
     setLoading(true);
-    try {
+try {
       // Load products and check for low stock
-      const products = await productService.getAll()
-      const orders = await orderService.getAll()
+      const products = await productService.getAll();
+      const orders = await orderService.getAll();
       
       // Calculate low stock products (stock < 10)
-      const lowStock = products.filter(product => (product?.stock || 0) < 10)
-      setLowStockProducts(lowStock || [])
+const lowStock = (products || []).filter(product => (product?.stock || 0) < 10);
+      setLowStockProducts(lowStock || []);
+// Get today's orders
+      const today = new Date();
+      const todayOrdersData = (orders || []).filter(order => {
+        if (!order?.createdAt) return false;
+        const orderDate = new Date(order.createdAt);
+        return orderDate.toDateString() === today.toDateString();
+      });
+      setTodayOrders(todayOrdersData || []);
 
-      // Get today's orders
-      const today = new Date()
-      const todayOrdersData = orders.filter(order => {
-        const orderDate = new Date(order.createdAt)
-        return orderDate.toDateString() === today.toDateString()
-      })
-      setTodayOrders(todayOrdersData || [])
+// Calculate today's revenue with safe defaults
+      const todayRevenueAmount = (todayOrdersData || []).reduce((sum, order) => {
+        return sum + (order?.totalAmount || order?.total || 0);
+      }, 0);
+      setTodayRevenue(todayRevenueAmount || 0);
 
-      // Calculate today's revenue with safe defaults
-      const todayRevenueAmount = todayOrdersData.reduce((sum, order) => {
-        return sum + (order?.totalAmount || 0)
-      }, 0)
-      setTodayRevenue(todayRevenueAmount || 0)
-
-      // Get wallet data with safe defaults
-      const walletBalance = await paymentService.getWalletBalance()
-      const walletTransactionsData = await paymentService.getWalletTransactions()
-      setWalletTransactions(walletTransactionsData || [])
+// Get wallet data with safe defaults
+      const walletBalance = await paymentService.getWalletBalance();
+      const walletTransactionsData = await paymentService.getWalletTransactions();
+      setWalletTransactions(walletTransactionsData || []);
 
       // Get monthly revenue with safe defaults
-      const monthlyRevenue = await orderService.getMonthlyRevenue()
-      const pendingVerifications = await orderService.getPendingVerifications()
-      const revenueByMethodData = await orderService.getRevenueByPaymentMethod()
-      setRevenueByMethod(revenueByMethodData || {})
-
-      // Calculate revenue breakdown with safe defaults
+      const monthlyRevenue = await orderService.getMonthlyRevenue();
+      const pendingVerifications = await orderService.getPendingVerifications();
+const revenueByMethodData = await orderService.getRevenueByPaymentMethod();
+      setRevenueByMethod(revenueByMethodData || {});
+// Calculate revenue breakdown with safe defaults
       const breakdown = Object.entries(revenueByMethodData || {}).map(([method, amount]) => ({
         method,
         amount: amount || 0
-      }))
-      setRevenueBreakdown(breakdown || [])
+      }));
+      setRevenueBreakdown(breakdown || []);
 
-      // Sort orders by date (newest first)
-      const sortedOrdersData = [...(orders || [])].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      setSortedOrders(sortedOrdersData || [])
-      setRecentOrders(sortedOrdersData.slice(0, 5) || [])
+// Sort orders by date (newest first)
+      const sortedOrdersData = [...(orders || [])].sort((a, b) => {
+        const dateA = new Date(a?.createdAt || 0);
+        const dateB = new Date(b?.createdAt || 0);
+        return dateB - dateA;
+      });
+      setSortedOrders(sortedOrdersData || []);
+      setRecentOrders(sortedOrdersData.slice(0, 5) || []);
 
       setStats({
         walletBalance: walletBalance || 0,
@@ -89,9 +92,9 @@ const [revenueBreakdown, setRevenueBreakdown] = useState([]);
         todayRevenue: todayRevenueAmount || 0
       });
 
-    } catch (error) {
+} catch (error) {
       console.error('Error loading dashboard data:', error);
-      setError('Failed to load dashboard data');
+      setError(error?.message || 'Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
     }
