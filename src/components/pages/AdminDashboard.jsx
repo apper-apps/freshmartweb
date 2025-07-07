@@ -9,7 +9,7 @@ import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
-import { productService } from "@/services/api/productService";
+import productService from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
 
 const AdminDashboard = () => {
