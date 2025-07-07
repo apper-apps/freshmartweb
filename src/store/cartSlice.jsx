@@ -1,7 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { toast } from "react-toastify";
-import React from "react";
-import Error from "@/components/ui/Error";
 import productService from "@/services/api/productService";
 
 // Initial state
@@ -25,23 +23,33 @@ export const validateCartPrices = createAsyncThunk(
       for (const item of cart.items) {
         try {
           const productResponse = await productService.getById(item.id);
-          const currentProduct = productResponse.data || productResponse;
-          const priceChanged = currentProduct.price !== item.price;
-          const stockChanged = currentProduct.stock !== item.stock;
+          const product = productResponse.data || productResponse;
           
-          validationResults.push({
-            id: item.id,
-            name: item.name,
-            oldPrice: item.price,
-            newPrice: currentProduct.price,
-            oldStock: item.stock,
-            newStock: currentProduct.stock,
-            priceChanged,
-            stockChanged,
-            currentProduct
-          });
+          if (!product || !product.isActive) {
+            validationResults.push({
+              id: item.id,
+              name: item.name,
+              error: 'Product no longer available',
+              unavailable: true
+            });
+          } else {
+            const priceChanged = product.price !== item.price;
+            const stockChanged = product.stock !== item.stock;
+            
+            if (priceChanged || stockChanged) {
+              validationResults.push({
+                id: item.id,
+                name: item.name,
+                oldPrice: item.price,
+                newPrice: product.price,
+                oldStock: item.stock,
+                newStock: product.stock,
+                priceChanged,
+                stockChanged
+              });
+            }
+          }
         } catch (error) {
-          // Product might be deleted or unavailable
           validationResults.push({
             id: item.id,
             name: item.name,
@@ -61,8 +69,7 @@ export const validateCartPrices = createAsyncThunk(
 // Async thunk for adding to cart with validation
 export const addToCartWithValidation = createAsyncThunk(
   'cart/addToCartWithValidation',
-
-async (productId, { getState, rejectWithValue }) => {
+  async (productId, { getState, rejectWithValue }) => {
     try {
       const productResponse = await productService.getById(productId);
       const product = productResponse.data || productResponse;
@@ -83,15 +90,25 @@ async (productId, { getState, rejectWithValue }) => {
       
       return product;
     } catch (error) {
-      return rejectWithValue(error.message);
+      console.error('Product validation error:', error);
+      return rejectWithValue(error.message || 'Failed to add product to cart');
     }
   }
 );
 
+// Async thunk for updating quantity with validation
 export const updateQuantityWithValidation = createAsyncThunk(
   'cart/updateQuantityWithValidation',
-async ({ productId, quantity }, { rejectWithValue }) => {
+  async ({ productId, quantity }, { rejectWithValue }) => {
     try {
+      if (quantity < 0) {
+        return rejectWithValue('Quantity cannot be negative');
+      }
+      
+      if (quantity === 0) {
+        return { productId, quantity: 0, remove: true };
+      }
+      
       const productResponse = await productService.getById(productId);
       const product = productResponse.data || productResponse;
       
@@ -102,13 +119,16 @@ async ({ productId, quantity }, { rejectWithValue }) => {
       if (quantity > product.stock) {
         throw new Error(`Only ${product.stock} ${product.unit || 'pieces'} available in stock`);
       }
+      
       return { productId, quantity, currentProduct: product };
     } catch (error) {
-      return rejectWithValue(error.message);
+      console.error('Quantity validation error:', error);
+      return rejectWithValue(error.message || 'Failed to update quantity');
     }
   }
 );
 
+// Create slice
 const cartSlice = createSlice({
   name: 'cart',
   initialState,
@@ -154,7 +174,7 @@ const cartSlice = createSlice({
       cartSlice.caseReducers.calculateTotals(state);
     },
     
-updateQuantity: (state, action) => {
+    updateQuantity: (state, action) => {
       const { productId, quantity } = action.payload;
       if (quantity <= 0) {
         state.items = state.items.filter(item => item.id !== productId);
@@ -165,19 +185,19 @@ updateQuantity: (state, action) => {
           const validQuantity = Math.min(quantity, item.stock);
           item.quantity = validQuantity;
           item.updatedAt = Date.now();
-          // Note: isUpdating flag should be managed at component level
-          // to avoid async operations in reducers
         }
       }
       
       cartSlice.caseReducers.calculateTotals(state);
     },
+    
     clearCart: (state) => {
       state.items = [];
       state.total = 0;
       state.itemCount = 0;
     },
-calculateTotals: (state) => {
+    
+    calculateTotals: (state) => {
       state.total = state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
       state.itemCount = state.items.reduce((total, item) => total + item.quantity, 0);
     },
@@ -284,8 +304,10 @@ calculateTotals: (state) => {
             item.quantity = quantity;
             item.updatedAt = Date.now();
             // Update with current product data
-            item.price = currentProduct.price;
-            item.stock = currentProduct.stock;
+            if (currentProduct) {
+              item.price = currentProduct.price;
+              item.stock = currentProduct.stock;
+            }
           }
         }
         

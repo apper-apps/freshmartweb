@@ -1,5 +1,4 @@
 import { useDispatch, useSelector } from "react-redux";
-import React from "react";
 import { 
   addToCart as addToCartAction, 
   removeFromCart as removeFromCartAction, 
