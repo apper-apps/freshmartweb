@@ -66,32 +66,35 @@ return (
         <h3 className="font-semibold text-lg text-gray-900 line-clamp-2">
             {product.name}
         </h3>
-        <div className="flex items-center justify-between">
+<div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
                 <span className="text-2xl font-bold gradient-text">Rs. {product.price.toLocaleString()}
                 </span>
                 <span className="text-sm text-gray-500">/{product.unit}
                 </span>
             </div>
-            {product.previousPrice && product.previousPrice !== product.price && <span className="text-sm text-gray-500 line-through">Rs. {product.previousPrice.toLocaleString()}
-            </span>})
-
-                    <div className="flex items-center justify-between pt-1">
-                <div className="flex items-center space-x-1 text-sm text-gray-600">
-                    <ApperIcon name="Package" size={16} />
-                    <span>{product.stock}in stock</span>
-                </div>
-                <Button
-                    variant="primary"
-                    size="small"
-                    icon="Plus"
-                    onClick={handleAddToCart}
-                    disabled={product.stock === 0 || isLoading}
-                    loading={isLoading}>Add
-                              </Button>
-            </div>
+            {product.previousPrice && product.previousPrice !== product.price && (
+                <span className="text-sm text-gray-500 line-through">Rs. {product.previousPrice.toLocaleString()}
+                </span>
+            )}
         </div>
-    </div></div>
+
+        <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center space-x-1 text-sm text-gray-600">
+                <ApperIcon name="Package" size={16} />
+                <span>{product.stock} in stock</span>
+            </div>
+            <Button
+                variant="primary"
+                size="small"
+                icon="Plus"
+                onClick={handleAddToCart}
+                disabled={product.stock === 0 || isLoading}
+                loading={isLoading}>Add
+            </Button>
+        </div>
+    </div>
+    </div>
 );
 });
 
