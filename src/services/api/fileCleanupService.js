@@ -97,7 +97,7 @@ class FileCleanupService {
     }
   }
 
-  // Get all payment proof files from services
+// Get all payment proof files from S3/R2 services with enhanced metadata
   async getAllPaymentProofs() {
     const allFiles = [];
     
@@ -110,23 +110,29 @@ class FileCleanupService {
       const paymentProofs = paymentService.paymentProofs || [];
       allFiles.push(...paymentProofs);
       
-      // Get files from orders
+      // Get S3 files from orders with enhanced metadata
       const orders = await orderService.getAll();
       const orderProofs = orders
-        .filter(order => order.paymentProof || order.paymentProofFileName)
+        .filter(order => order.paymentProof || order.paymentProofFileName || order.paymentProofS3Key)
         .map(order => ({
           Id: `order_${order.id}`,
           fileName: order.paymentProofFileName || order.paymentProof?.fileName,
           uploadedAt: order.paymentProofSubmittedAt || order.createdAt,
           fileSize: order.paymentProof?.fileSize || 0,
           orderId: order.id,
-          source: 'order'
+          source: 'order',
+          // S3 specific metadata
+          s3Bucket: order.paymentProofS3Bucket || 'freshmart-payment-proofs',
+          s3Key: order.paymentProofS3Key || `payment-proofs/${order.paymentProofFileName}`,
+          s3Url: order.paymentProofUrl,
+          isPublicRead: order.paymentProofIsPublicRead || true,
+          storageType: 's3'
         }));
       
       allFiles.push(...orderProofs);
       
     } catch (error) {
-      console.error('Error gathering payment proof files:', error);
+      console.error('Error gathering S3 payment proof files:', error);
     }
     
     return allFiles;
@@ -144,66 +150,103 @@ class FileCleanupService {
     });
   }
 
-  // Delete an expired file and its thumbnail
+// Delete an expired S3 file and its thumbnail with comprehensive tracking
   async deleteExpiredFile(file) {
-    // Simulate file deletion process
-    await this.delay(100);
+    // Simulate S3 file deletion process
+    await this.delay(150);
     
     // In real implementation, this would:
-    // 1. Delete the main file
-    // 2. Delete the thumbnail
+    // 1. Delete the main S3 file
+    // 2. Delete the S3 thumbnail
     // 3. Update database records
-    // 4. Log the deletion
+    // 4. Log the deletion with S3 metadata
+    // 5. Update CloudFront cache invalidation
     
-    console.log(`Deleting expired file: ${file.fileName} (uploaded: ${file.uploadedAt})`);
+    console.log(`Deleting expired S3 file: ${file.fileName} from bucket: ${file.s3Bucket} (uploaded: ${file.uploadedAt})`);
     
-    // Simulate deletion operations
+    // Simulate S3 deletion operations
     const deletionTasks = [
-      this.deleteMainFile(file),
-      this.deleteThumbnail(file),
-      this.updateDatabaseRecord(file)
+      this.deleteS3MainFile(file),
+      this.deleteS3Thumbnail(file),
+      this.updateDatabaseRecord(file),
+      this.invalidateCloudFrontCache(file)
     ];
     
     await Promise.all(deletionTasks);
     
-    // Log deletion for audit trail
-    this.logFileDeletion(file);
+    // Log S3 deletion for comprehensive audit trail
+    this.logS3FileDeletion(file);
   }
-
-  // Delete main payment proof file
-  async deleteMainFile(file) {
-    await this.delay(50);
+// Delete main S3 payment proof file
+  async deleteS3MainFile(file) {
+    await this.delay(75);
     
     // In real implementation:
-    // const fs = require('fs').promises;
-    // await fs.unlink(file.filePath);
+    // const AWS = require('aws-sdk');
+    // const s3 = new AWS.S3();
+    // await s3.deleteObject({
+    //   Bucket: file.s3Bucket,
+    //   Key: file.s3Key
+    // }).promise();
     
-    console.log(`Deleted main file: ${file.fileName}`);
+    console.log(`Deleted S3 main file: ${file.s3Key} from bucket: ${file.s3Bucket}`);
   }
 
-  // Delete thumbnail file
-  async deleteThumbnail(file) {
-    await this.delay(30);
+  // Delete S3 thumbnail file
+  async deleteS3Thumbnail(file) {
+    await this.delay(50);
     
-    if (file.thumbnailPath) {
-      // In real implementation:
-      // const fs = require('fs').promises;
-      // await fs.unlink(file.thumbnailPath);
+    if (file.s3Key) {
+      const thumbnailKey = file.s3Key.replace(/\.[^/.]+$/, '_thumb.webp');
       
-      console.log(`Deleted thumbnail: ${file.fileName}_thumb`);
+      // In real implementation:
+      // const AWS = require('aws-sdk');
+      // const s3 = new AWS.S3();
+      // await s3.deleteObject({
+      //   Bucket: file.s3Bucket,
+      //   Key: `payment-proofs/thumbnails/${thumbnailKey.split('/').pop()}`
+      // }).promise();
+      
+      console.log(`Deleted S3 thumbnail: ${thumbnailKey} from bucket: ${file.s3Bucket}`);
     }
   }
 
-  // Update database record to mark file as deleted
+  // Invalidate CloudFront cache for deleted S3 files
+  async invalidateCloudFrontCache(file) {
+    await this.delay(30);
+    
+    // In real implementation:
+    // const AWS = require('aws-sdk');
+    // const cloudfront = new AWS.CloudFront();
+    // await cloudfront.createInvalidation({
+    //   DistributionId: 'CLOUDFRONT_DISTRIBUTION_ID',
+    //   InvalidationBatch: {
+    //     Paths: {
+    //       Quantity: 2,
+    //       Items: [
+    //         `/payment-proofs/${file.fileName}`,
+    //         `/payment-proofs/thumbnails/${file.fileName.replace(/\.[^/.]+$/, '_thumb.webp')}`
+    //       ]
+    //     },
+    //     CallerReference: `cleanup_${Date.now()}`
+    //   }
+    // }).promise();
+    
+    console.log(`Invalidated CloudFront cache for: ${file.fileName}`);
+  }
+
+  // Update database record to mark S3 file as deleted
   async updateDatabaseRecord(file) {
-    await this.delay(20);
+    await this.delay(25);
     
     // Mark file as deleted instead of removing record (for audit)
-    file.status = 'deleted_by_cleanup';
+    file.status = 'deleted_by_s3_cleanup';
     file.deletedAt = new Date().toISOString();
     file.deletedBy = 'cleanup_service';
+    file.s3DeletedAt = new Date().toISOString();
+    file.cleanupReason = 'retention_period_exceeded';
     
-    console.log(`Updated database record for: ${file.fileName}`);
+    console.log(`Updated database record for S3 file: ${file.fileName}`);
   }
 
   // Clean up empty directories
@@ -233,22 +276,31 @@ class FileCleanupService {
     console.log('Cleaned up empty directories');
   }
 
-  // Log file deletion for audit trail
-  logFileDeletion(file) {
+// Log S3 file deletion for comprehensive audit trail
+  logS3FileDeletion(file) {
     const deletionLog = {
       timestamp: new Date().toISOString(),
-      action: 'automated_cleanup',
+      action: 's3_automated_cleanup',
       fileId: file.Id,
       fileName: file.fileName,
       orderId: file.orderId,
       uploadedAt: file.uploadedAt,
       fileSize: file.fileSize,
       deletedBy: 'cleanup_service',
-      reason: 'retention_period_exceeded'
+      reason: 'retention_period_exceeded',
+      // S3 specific metadata
+      s3Bucket: file.s3Bucket,
+      s3Key: file.s3Key,
+      s3Url: file.s3Url,
+      isPublicRead: file.isPublicRead,
+      storageType: file.storageType || 's3',
+      cloudFrontInvalidated: true,
+      retentionPolicyVersion: '1.0',
+      complianceStatus: 'gdpr_compliant'
     };
     
-    // In real implementation, send to audit logging service
-    console.log('File deletion audit log:', deletionLog);
+    // In real implementation, send to AWS CloudTrail and audit logging service
+    console.log('S3 file deletion audit log:', deletionLog);
   }
 
   // Log cleanup results

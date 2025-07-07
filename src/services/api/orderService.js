@@ -60,13 +60,22 @@ if (orderData.paymentMethod === 'wallet') {
       newOrder.status = 'payment_pending';
     }
     
-// Handle payment proof submissions with secure file storage
+// Handle payment proof submissions with S3 secure file storage
     if (orderData.paymentProof && orderData.paymentMethod !== 'cash') {
       newOrder.verificationStatus = 'pending';
       newOrder.paymentProofSubmittedAt = new Date().toISOString();
       newOrder.paymentProofFileName = orderData.paymentProof.fileName;
-      newOrder.paymentProofUrl = orderData.paymentProof.fileUrl;
+      
+      // Store full S3 URLs immediately for instant visibility
+      newOrder.paymentProofUrl = orderData.paymentProof.fileUrl || orderData.paymentProof.s3Url;
       newOrder.paymentProofThumbnailUrl = orderData.paymentProof.thumbnailUrl;
+      
+      // Store S3 metadata for enhanced access control
+      if (orderData.paymentProof.s3Bucket && orderData.paymentProof.s3Key) {
+        newOrder.paymentProofS3Bucket = orderData.paymentProof.s3Bucket;
+        newOrder.paymentProofS3Key = orderData.paymentProof.s3Key;
+        newOrder.paymentProofIsPublicRead = orderData.paymentProof.isPublicRead || true;
+      }
     }
     
     this.orders.push(newOrder);
@@ -304,63 +313,73 @@ async updateVerificationStatus(orderId, status, notes = '') {
     return { ...updatedOrder };
   }
 
-// Enhanced secure image serving methods with RBAC and malware scanning
+// Enhanced S3 secure image serving with comprehensive RBAC and audit logging
   async servePaymentProof(fileName, userRole = 'admin', sessionToken = null) {
     await this.delay(200);
     
     // Enhanced authentication and authorization
     if (!this.validateUserAccess(userRole, sessionToken)) {
-      throw new Error('Authentication required to access payment proof');
+      throw new Error('Authentication required to access S3 payment proof');
     }
     
     // Validate user has permission to access file with detailed role checking
     if (!this.hasFileAccessPermission(userRole)) {
-      throw new Error('Insufficient permissions to access payment proof');
+      throw new Error('Insufficient permissions to access S3 payment proof');
     }
 
     // Find order with this payment proof with enhanced search
     const order = this.findOrderByPaymentProof(fileName);
     if (!order) {
-      throw new Error('Payment proof not found or has been removed');
+      throw new Error('S3 payment proof not found or access denied');
     }
 
-    // Validate file exists and is not marked as deleted
+    // Validate S3 file exists and is not marked as deleted
     if (order.paymentProof?.status === 'deleted' || order.paymentProof?.isDeleted) {
-      throw new Error('Payment proof has been removed');
+      throw new Error('S3 payment proof has been removed');
     }
 
     // Check file age for automatic cleanup (30+ days)
     if (this.isFileExpired(order.paymentProofSubmittedAt || order.createdAt)) {
-      throw new Error('Payment proof has expired and been archived');
+      throw new Error('S3 payment proof has expired and been archived');
     }
 
-    // Simulate malware scan result check
+    // Simulate S3 security scan result check
     const scanResult = await this.checkFileSecurity(fileName, order);
     if (!scanResult.isSafe) {
-      throw new Error('File access denied due to security concerns');
+      throw new Error('S3 file access denied due to security concerns');
     }
 
-    // Simulate file serving with enhanced security headers
+    // Generate S3 signed URL for secure access (admin) or direct public URL (if public-read)
+    const s3Url = this.generateS3AccessUrl(order, userRole);
+    
+    // Log access for comprehensive audit trail
+    await this.logS3FileAccess(order, userRole, sessionToken);
+
+    // Return S3 file data with enhanced security headers
     return {
       fileName: fileName,
+      s3Url: s3Url,
+      s3Bucket: order.paymentProofS3Bucket || 'freshmart-payment-proofs',
+      s3Key: order.paymentProofS3Key || `payment-proofs/${fileName}`,
       mimeType: order.paymentProof?.fileType || 'image/jpeg',
       fileSize: order.paymentProof?.fileSize || 0,
       lastModified: order.paymentProofSubmittedAt || order.createdAt,
+      isPublicRead: order.paymentProofIsPublicRead || true,
       contentDisposition: `inline; filename="${order.paymentProof?.originalName || fileName}"`,
-      cacheControl: 'private, no-cache, no-store, must-revalidate',
+      cacheControl: order.paymentProofIsPublicRead ? 'public, max-age=3600' : 'private, no-cache, no-store, must-revalidate',
       securityHeaders: {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline';",
+        'Content-Security-Policy': "default-src 'none'; img-src 'self' data: https://*.amazonaws.com; style-src 'unsafe-inline';",
         'X-XSS-Protection': '1; mode=block',
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
       },
-      accessLog: {
+      accessMetadata: {
         accessedBy: userRole,
         accessedAt: new Date().toISOString(),
-        clientIP: '127.0.0.1', // In real implementation, get from request
-        userAgent: 'Admin-Dashboard'
+        accessMethod: 's3_secure',
+        sessionId: sessionToken?.substring(0, 8) + '...' || 'anonymous'
       }
     };
   }
@@ -498,94 +517,183 @@ return {
 }
 
 // Payment Proof URL Helper Methods
-// Enhanced Payment Proof URL Helper Methods with robust fallback hierarchy
+// Enhanced S3 Payment Proof URL Helper with robust fallback and retry mechanisms
   getPaymentProofUrl(order) {
     try {
-      // Priority 1: Check for direct URL field (highest priority)
+      // Priority 1: Check for S3 URL field (highest priority for MVP storage)
       if (order?.paymentProofUrl && order.paymentProofUrl !== '' && !order.paymentProofUrl.includes('undefined')) {
+        // Verify S3 URL format and add retry parameters
+        if (order.paymentProofUrl.includes('s3.') || order.paymentProofUrl.includes('amazonaws.com')) {
+          return this.addRetryParameters(order.paymentProofUrl);
+        }
         return order.paymentProofUrl;
       }
       
-      // Priority 2: Check for base64 or data URLs in paymentProof field
+      // Priority 2: Construct S3 URL from payment proof metadata
+      if (order?.paymentProof?.s3Key && order?.paymentProof?.s3Bucket) {
+        const s3BaseUrl = `https://${order.paymentProof.s3Bucket}.s3.us-east-1.amazonaws.com`;
+        return this.addRetryParameters(`${s3BaseUrl}/${order.paymentProof.s3Key}`);
+      }
+      
+      // Priority 3: Generate S3 URL from filename with standard pattern
+      if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
+        const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
+        if (fileName && fileName !== 'undefined' && fileName !== 'null') {
+          // Check if filename follows OrderID_UserID_Timestamp pattern
+          if (fileName.includes('_') && fileName.match(/^\d+_\w+_\d+/)) {
+            const s3Url = `https://freshmart-payment-proofs.s3.us-east-1.amazonaws.com/payment-proofs/${fileName}`;
+            return this.addRetryParameters(s3Url);
+          }
+          // Fallback to secure API endpoint for legacy files
+          return `/api/payment-proofs/secure/${fileName}?auth=true&fallback=s3`;
+        }
+      }
+      
+      // Priority 4: Check for base64 or blob URLs (temporary uploads)
       if (order?.paymentProof && typeof order.paymentProof === 'string') {
         if (order.paymentProof.startsWith('data:image/') || order.paymentProof.startsWith('blob:')) {
           return order.paymentProof;
         }
-        // Check if it's a direct URL string
         if (order.paymentProof.startsWith('http') || order.paymentProof.startsWith('/api/')) {
           return order.paymentProof;
         }
       }
       
-      // Priority 3: Construct URL from file metadata
-      if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
-        const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
-        if (fileName && fileName !== 'undefined' && fileName !== 'null') {
-          return `/api/payment-proofs/secure/${fileName}?auth=true`;
-        }
-      }
-      
-      // Priority 4: Try alternative field names for backwards compatibility
+      // Priority 5: Try alternative field names for backwards compatibility
       if (order?.paymentProof?.fileUrl) {
-        return order.paymentProof.fileUrl;
+        return this.addRetryParameters(order.paymentProof.fileUrl);
       }
       
-      // Priority 5: Return enhanced placeholder with better error indication
+      // Priority 6: Return enhanced placeholder with better error indication
       return this.getPlaceholderImage('payment_proof_unavailable');
     } catch (error) {
-      console.warn('Error generating payment proof URL:', error);
+      console.warn('Error generating S3 payment proof URL:', error);
       return this.getPlaceholderImage('payment_proof_error');
     }
   }
 
-  getPaymentProofThumbnailUrl(order) {
+getPaymentProofThumbnailUrl(order) {
     try {
-      // Priority 1: Check for dedicated thumbnail URL (highest priority)
+      // Priority 1: Check for S3 thumbnail URL (highest priority for MVP storage)
       if (order?.paymentProofThumbnailUrl && order.paymentProofThumbnailUrl !== '' && !order.paymentProofThumbnailUrl.includes('undefined')) {
+        // Verify S3 thumbnail URL and add retry parameters
+        if (order.paymentProofThumbnailUrl.includes('s3.') || order.paymentProofThumbnailUrl.includes('amazonaws.com')) {
+          return this.addRetryParameters(order.paymentProofThumbnailUrl);
+        }
         return order.paymentProofThumbnailUrl;
       }
       
-      // Priority 2: Check for thumbnail in payment proof object
-      if (order?.paymentProof?.thumbnailUrl && order.paymentProof.thumbnailUrl !== '') {
-        return order.paymentProof.thumbnailUrl;
+      // Priority 2: Construct S3 thumbnail URL from payment proof metadata
+      if (order?.paymentProof?.s3Bucket && order?.paymentProof?.fileName) {
+        const s3BaseUrl = `https://${order.paymentProof.s3Bucket}.s3.us-east-1.amazonaws.com`;
+        const thumbnailFileName = order.paymentProof.fileName.replace(/\.[^/.]+$/, '_thumb.webp');
+        return this.addRetryParameters(`${s3BaseUrl}/payment-proofs/thumbnails/${thumbnailFileName}`);
       }
       
-      // Priority 3: Construct thumbnail URL from filename
+      // Priority 3: Generate S3 thumbnail URL from filename with standard pattern
       if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
         const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
         if (fileName && fileName !== 'undefined' && fileName !== 'null') {
-          // Generate thumbnail filename with WebP format
+          // Check if filename follows OrderID_UserID_Timestamp pattern
+          if (fileName.includes('_') && fileName.match(/^\d+_\w+_\d+/)) {
+            const thumbnailFileName = fileName.replace(/\.[^/.]+$/, '_thumb.webp');
+            const s3ThumbnailUrl = `https://freshmart-payment-proofs.s3.us-east-1.amazonaws.com/payment-proofs/thumbnails/${thumbnailFileName}`;
+            return this.addRetryParameters(s3ThumbnailUrl);
+          }
+          // Fallback to API endpoint for legacy files
           const thumbnailFileName = fileName.replace(/\.[^/.]+$/, '_thumb.webp');
-          return `/api/payment-proofs/thumbnails/${thumbnailFileName}?size=200x200`;
+          return `/api/payment-proofs/thumbnails/${thumbnailFileName}?size=200x200&fallback=s3`;
         }
       }
       
-      // Priority 4: Fall back to main URL if it's a real image (not placeholder)
-      const mainUrl = this.getPaymentProofUrl(order);
-      if (mainUrl && !mainUrl.startsWith('data:image/svg+xml') && !mainUrl.includes('placeholder')) {
-        // Add thumbnail parameters to the main URL
-        return `${mainUrl}?thumbnail=true&size=200x200`;
+      // Priority 4: Check for thumbnail in payment proof object
+      if (order?.paymentProof?.thumbnailUrl && order.paymentProof.thumbnailUrl !== '') {
+        return this.addRetryParameters(order.paymentProof.thumbnailUrl);
       }
       
-      // Priority 5: Return placeholder for thumbnails
+      // Priority 5: Handle PDF files with document icon
+      if (order?.paymentProof?.fileType === 'application/pdf' || order?.paymentProof?.documentType === 'pdf') {
+        return '/assets/icons/pdf-thumbnail.png';
+      }
+      
+      // Priority 6: Fall back to main URL with thumbnail parameters if it's a real image
+      const mainUrl = this.getPaymentProofUrl(order);
+      if (mainUrl && !mainUrl.startsWith('data:image/svg+xml') && !mainUrl.includes('placeholder')) {
+        return `${mainUrl}?thumbnail=true&size=200x200&format=webp`;
+      }
+      
+      // Priority 7: Return placeholder for thumbnails
       return this.getPlaceholderImage('thumbnail_unavailable');
     } catch (error) {
-      console.warn('Error generating payment proof thumbnail URL:', error);
+      console.warn('Error generating S3 payment proof thumbnail URL:', error);
       return this.getPlaceholderImage('thumbnail_error');
     }
   }
   
-  // Enhanced placeholder generation with different types
+// Add retry parameters to S3 URLs for failed load recovery
+  addRetryParameters(url) {
+    if (!url || url.startsWith('data:image/svg+xml')) {
+      return url;
+    }
+    
+    // Add cache-busting and retry-friendly parameters
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}v=${Date.now()}&retry=0`;
+  }
+
+  // Enhanced placeholder generation with different types and S3 fallback messaging
   getPlaceholderImage(type = 'default') {
     const placeholders = {
-      'payment_proof_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=',
-      'payment_proof_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iI0VGNDQ0NCIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEyIj5FcnJvcjwvdGV4dD48L3N2Zz4=',
-      'thumbnail_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA5NUwxMDAgMTEwTDExNSA5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOUNBM0FGIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxMDAiIHk9IjE2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMiI+VGh1bWJuYWlsPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=',
-      'thumbnail_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA4NUwxMTUgMTE1TTExNSA4NUw4NSAxMTUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMTAwIiB5PSIxNjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNFRjQ0NDQiIGZvbnQtc2l6ZT0iMTIiPkVycm9yPC90ZXh0Pjwvc3ZnPg==',
+      'payment_proof_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5UZW1wb3JhcmlseSBVbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=',
+      'payment_proof_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iI0VGNDQ0NCIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEyIj5TMyBMb2FkIEVycm9yPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEwIj5SZXRyeSBpbiBwcm9ncmVzczwvdGV4dD48L3N2Zz4=',
+      'thumbnail_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA5NUwxMDAgMTEwTDExNSA5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOUNBM0FGIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxMDAiIHk9IjE2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMiI+UzMgVGh1bWJuYWlsPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Mb2FkaW5nLi4uPC90ZXh0Pjwvc3ZnPg==',
+      'thumbnail_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA4NUwxMTUgMTE1TTExNSA4NUw4NSAxMTUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMTAwIiB5PSIxNjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNFRjQ0NDQiIGZvbnQtc2l6ZT0iMTIiPlMzIEVycm9yPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEwIj5SZXRyeSBmYWlsZWQ8L3RleHQ+PC9zdmc+',
       'default': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5JbWFnZTwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMCI+Tm90IEZvdW5kPC90ZXh0Pjwvc3ZnPg=='
     };
     
     return placeholders[type] || placeholders['default'];
+  }
+// Generate S3 access URL based on user role and file access permissions
+  generateS3AccessUrl(order, userRole) {
+    const fileName = order.paymentProofFileName || order.paymentProof?.fileName;
+    const s3Bucket = order.paymentProofS3Bucket || 'freshmart-payment-proofs';
+    const s3Key = order.paymentProofS3Key || `payment-proofs/${fileName}`;
+    
+    // For admin/finance_manager: Generate signed URL for secure access
+    if (userRole === 'admin' || userRole === 'finance_manager') {
+      const baseUrl = `https://${s3Bucket}.s3.us-east-1.amazonaws.com/${s3Key}`;
+      // In real implementation, this would be a signed URL with expiration
+      return `${baseUrl}?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Date=${new Date().toISOString().replace(/[:-]/g, '').slice(0, 15)}Z&X-Amz-SignedHeaders=host&X-Amz-Expires=3600&X-Amz-Credential=admin&X-Amz-Signature=mock_signature`;
+    }
+    
+    // For public access: Return direct S3 URL
+    if (order.paymentProofIsPublicRead) {
+      return `https://${s3Bucket}.s3.us-east-1.amazonaws.com/${s3Key}`;
+    }
+    
+    // Fallback to CDN URL
+    return `https://cdn.freshmart.com/payment-proofs/${fileName}`;
+  }
+
+  // Log S3 file access for comprehensive audit trail
+  async logS3FileAccess(order, userRole, sessionToken) {
+    const accessLog = {
+      timestamp: new Date().toISOString(),
+      action: 's3_file_access',
+      orderId: order.id,
+      fileName: order.paymentProofFileName,
+      s3Bucket: order.paymentProofS3Bucket,
+      s3Key: order.paymentProofS3Key,
+      accessedBy: userRole,
+      sessionToken: sessionToken?.substring(0, 8) + '...' || 'anonymous',
+      clientIP: '127.0.0.1', // In real implementation, get from request
+      userAgent: 'FreshMart-Admin',
+      accessType: 'view_payment_proof',
+      successful: true
+    };
+    
+    // In real implementation, send to AWS CloudTrail or audit logging service
+    console.log('S3 payment proof access audit log:', accessLog);
   }
 
   delay() {

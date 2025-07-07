@@ -197,13 +197,12 @@ const Orders = () => {
                     )}
                   </div>
                   
-                  {(order.paymentProof || order.paymentProofUrl) && (
+{(order.paymentProof || order.paymentProofUrl) && (
                     <div>
                       <div className="flex items-center space-x-2 mb-2">
                         <ApperIcon name="FileText" size={14} className="text-gray-500" />
-<span className="text-sm text-gray-600">Payment proof uploaded</span>
+                        <span className="text-sm text-gray-600">Payment proof uploaded</span>
                       </div>
-)}
                       {order.paymentProof && (
                         <div className="relative group">
                           <img
@@ -225,8 +224,16 @@ const Orders = () => {
                                         style="background: white;"
                                         onload="this.parentElement.classList.remove('bg-gray-100')"
                                         onerror="
-                                          this.style.display = 'none';
-                                          this.parentElement.innerHTML = '<div class=\\'text-center p-8\\'><div class=\\'w-24 h-24 mx-auto mb-4 bg-gray-300 rounded-lg flex items-center justify-center\\'><svg class=\\'w-12 h-12 text-gray-500\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z\\'></path></svg></div><p class=\\'text-gray-600\\'>Payment proof temporarily unavailable</p></div>';
+                                          let retryCount = parseInt(this.dataset.retryCount || '0');
+                                          if (retryCount < 3) {
+                                            this.dataset.retryCount = retryCount + 1;
+                                            setTimeout(() => {
+                                              this.src = this.src.includes('?') ? this.src + '&retry=' + retryCount : this.src + '?retry=' + retryCount;
+                                            }, 1000 * Math.pow(2, retryCount));
+                                          } else {
+                                            this.style.display = 'none';
+                                            this.parentElement.innerHTML = '<div class=\\'text-center p-8\\'><div class=\\'w-24 h-24 mx-auto mb-4 bg-gray-300 rounded-lg flex items-center justify-center\\'><svg class=\\'w-12 h-12 text-gray-500\\' fill=\\'none\\' stroke=\\'currentColor\\' viewBox=\\'0 0 24 24\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z\\'></path></svg></div><p class=\\'text-gray-600\\'>Payment proof temporarily unavailable</p><p class=\\'text-sm text-gray-500 mt-2\\'>Retried 3 times - please contact support</p></div>';
+                                          }
                                         "
                                       />
                                     </div>
@@ -264,8 +271,14 @@ const Orders = () => {
                             }}
                             onError={(e) => {
                               console.warn('Failed to load payment proof thumbnail:', e.target.src);
-                              // Only replace with placeholder if it's not already a placeholder
-                              if (!e.target.src.startsWith('data:image/svg+xml')) {
+                              let retryCount = parseInt(e.target.dataset.retryCount || '0');
+                              if (retryCount < 2 && !e.target.src.startsWith('data:image/svg+xml')) {
+                                e.target.dataset.retryCount = retryCount + 1;
+                                setTimeout(() => {
+                                  const newUrl = orderService.getPaymentProofThumbnailUrl(order);
+                                  e.target.src = newUrl.includes('?') ? newUrl + '&retry=' + retryCount : newUrl + '?retry=' + retryCount;
+                                }, 1000 * Math.pow(2, retryCount));
+                              } else if (!e.target.src.startsWith('data:image/svg+xml')) {
                                 e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
                                 e.target.alt = 'Payment proof image not available';
                               }
