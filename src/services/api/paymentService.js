@@ -102,41 +102,281 @@ class PaymentService {
     return { ...transaction };
   }
 
-  // Digital Wallet Payment Processing
-  async processDigitalWalletPayment(walletType, amount, orderId, phone) {
-    await this.delay(1500);
-
-    // Validate phone number for Pakistani wallets
-    if (!phone || !this.validatePakistaniPhone(phone)) {
-      throw new Error('Please provide a valid Pakistani phone number');
-    }
-
-    const success = Math.random() > 0.05; // 95% success rate for digital wallets
+// Digital Wallet Payment Processing
+  async processDigitalWalletPayment(walletType, amount, orderId, phone, retryCount = 0) {
+    const maxRetries = 3;
+    const transactionId = this.generateTransactionId();
     
-    if (!success) {
-      throw new Error(`${walletType} payment failed. Please try again.`);
-    }
+    try {
+      // Log payment attempt
+      console.log(`[PaymentService] Processing ${walletType} payment - Amount: ${amount}, Order: ${orderId}, Retry: ${retryCount}`);
+      
+      await this.delay(1500);
 
-    const fee = this.calculateDigitalWalletFee(amount);
-    
-    const transaction = {
-      Id: this.getNextId(),
-      orderId,
-      amount,
-      paymentMethod: walletType,
-      phone,
-      status: 'completed',
-      transactionId: this.generateTransactionId(),
-      timestamp: new Date().toISOString(),
-      processingFee: fee,
-      gatewayResponse: {
-        walletTransactionId: this.generateWalletTransactionId(walletType),
-        reference: this.generateReference()
+      // Validate phone number for Pakistani wallets
+      if (!phone || !this.validatePakistaniPhone(phone)) {
+        const error = new Error('Please provide a valid Pakistani phone number');
+        error.code = 'INVALID_PHONE';
+        error.category = 'validation';
+        throw error;
       }
-    };
 
-    this.transactions.push(transaction);
-    return { ...transaction };
+      // Validate amount
+      if (!amount || amount <= 0) {
+        const error = new Error('Invalid payment amount');
+        error.code = 'INVALID_AMOUNT';
+        error.category = 'validation';
+        throw error;
+      }
+
+      // Simulate realistic payment processing with gateway-specific behavior
+      const paymentResult = await this.simulateGatewayPayment(walletType, amount, phone);
+      
+      if (!paymentResult.success) {
+        const error = new Error(paymentResult.message || `${walletType} payment failed. Please try again.`);
+        error.code = paymentResult.code || 'PAYMENT_FAILED';
+        error.category = paymentResult.category || 'gateway';
+        error.retryable = paymentResult.retryable || false;
+        error.gatewayResponse = paymentResult.gatewayResponse;
+        throw error;
+      }
+
+      const fee = this.calculateDigitalWalletFee(amount);
+      
+      const transaction = {
+        Id: this.getNextId(),
+        orderId,
+        amount,
+        paymentMethod: walletType,
+        phone,
+        status: 'completed',
+        transactionId,
+        timestamp: new Date().toISOString(),
+        processingFee: fee,
+        retryCount,
+        gatewayResponse: {
+          walletTransactionId: paymentResult.walletTransactionId || this.generateWalletTransactionId(walletType),
+          reference: paymentResult.reference || this.generateReference(),
+          gatewayStatus: paymentResult.gatewayStatus || 'success',
+          gatewayMessage: paymentResult.gatewayMessage || 'Payment processed successfully'
+        }
+      };
+
+      this.transactions.push(transaction);
+      console.log(`[PaymentService] ${walletType} payment successful - Transaction: ${transactionId}`);
+      return { ...transaction };
+
+    } catch (error) {
+      console.error(`[PaymentService] ${walletType} payment failed:`, error);
+      
+      // Log failed transaction
+      const failedTransaction = {
+        Id: this.getNextId(),
+        orderId,
+        amount,
+        paymentMethod: walletType,
+        phone,
+        status: 'failed',
+        transactionId,
+        timestamp: new Date().toISOString(),
+        retryCount,
+        error: {
+          code: error.code || 'UNKNOWN_ERROR',
+          message: error.message,
+          category: error.category || 'system'
+        },
+        gatewayResponse: error.gatewayResponse || null
+      };
+      
+      this.transactions.push(failedTransaction);
+      
+      // Retry logic for retryable errors
+      if (error.retryable && retryCount < maxRetries) {
+        console.log(`[PaymentService] Retrying ${walletType} payment (${retryCount + 1}/${maxRetries})`);
+        await this.delay(1000 * Math.pow(2, retryCount)); // Exponential backoff
+        return this.processDigitalWalletPayment(walletType, amount, orderId, phone, retryCount + 1);
+      }
+      
+      throw error;
+    }
+  }
+
+  // Simulate gateway-specific payment processing
+  async simulateGatewayPayment(walletType, amount, phone) {
+    // Simulate network delay
+    await this.delay(Math.random() * 1000 + 500);
+    
+    // Gateway-specific logic
+    switch (walletType.toLowerCase()) {
+      case 'jazzcash':
+        return this.processJazzCashPayment(amount, phone);
+      case 'easypaisa':
+        return this.processEasyPaisaPayment(amount, phone);
+      case 'upaisa':
+        return this.processUPaisaPayment(amount, phone);
+      case 'sadapay':
+        return this.processSadaPayPayment(amount, phone);
+      default:
+        return this.processGenericWalletPayment(walletType, amount, phone);
+    }
+  }
+
+  // JazzCash-specific processing
+  async processJazzCashPayment(amount, phone) {
+    // Simulate JazzCash-specific validation
+    if (!phone.startsWith('0300') && !phone.startsWith('0301') && !phone.startsWith('0302')) {
+      return {
+        success: false,
+        message: 'Invalid JazzCash number. Please use a valid Jazz number.',
+        code: 'INVALID_JAZZCASH_NUMBER',
+        category: 'validation',
+        retryable: false
+      };
+    }
+
+    // Simulate realistic success/failure rates
+    const random = Math.random();
+    
+    if (random > 0.95) { // 5% network/temporary failures
+      return {
+        success: false,
+        message: 'Network timeout. Please try again.',
+        code: 'NETWORK_TIMEOUT',
+        category: 'network',
+        retryable: true
+      };
+    }
+    
+    if (random > 0.98) { // 2% insufficient balance
+      return {
+        success: false,
+        message: 'Insufficient balance in your JazzCash account.',
+        code: 'INSUFFICIENT_BALANCE',
+        category: 'gateway',
+        retryable: false
+      };
+    }
+
+    // Success case
+    return {
+      success: true,
+      walletTransactionId: `JC${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
+      reference: `JAZZ_${this.generateReference()}`,
+      gatewayStatus: 'success',
+      gatewayMessage: 'JazzCash payment processed successfully'
+    };
+  }
+
+  // EasyPaisa-specific processing
+  async processEasyPaisaPayment(amount, phone) {
+    if (!phone.startsWith('0345') && !phone.startsWith('0346') && !phone.startsWith('0347')) {
+      return {
+        success: false,
+        message: 'Invalid EasyPaisa number. Please use a valid Telenor number.',
+        code: 'INVALID_EASYPAISA_NUMBER',
+        category: 'validation',
+        retryable: false
+      };
+    }
+
+    const random = Math.random();
+    
+    if (random > 0.97) { // 3% failures
+      return {
+        success: false,
+        message: 'EasyPaisa service temporarily unavailable.',
+        code: 'SERVICE_UNAVAILABLE',
+        category: 'gateway',
+        retryable: true
+      };
+    }
+
+    return {
+      success: true,
+      walletTransactionId: `EP${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
+      reference: `EASY_${this.generateReference()}`,
+      gatewayStatus: 'success',
+      gatewayMessage: 'EasyPaisa payment processed successfully'
+    };
+  }
+
+  // UPaisa-specific processing
+  async processUPaisaPayment(amount, phone) {
+    if (!phone.startsWith('0341') && !phone.startsWith('0342') && !phone.startsWith('0343')) {
+      return {
+        success: false,
+        message: 'Invalid UPaisa number. Please use a valid Ufone number.',
+        code: 'INVALID_UPAISA_NUMBER',
+        category: 'validation',
+        retryable: false
+      };
+    }
+
+    const random = Math.random();
+    
+    if (random > 0.96) { // 4% failures
+      return {
+        success: false,
+        message: 'UPaisa transaction failed. Please try again.',
+        code: 'TRANSACTION_FAILED',
+        category: 'gateway',
+        retryable: true
+      };
+    }
+
+    return {
+      success: true,
+      walletTransactionId: `UP${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
+      reference: `UPAISA_${this.generateReference()}`,
+      gatewayStatus: 'success',
+      gatewayMessage: 'UPaisa payment processed successfully'
+    };
+  }
+
+  // SadaPay-specific processing
+  async processSadaPayPayment(amount, phone) {
+    const random = Math.random();
+    
+    if (random > 0.98) { // 2% failures
+      return {
+        success: false,
+        message: 'SadaPay payment processing failed.',
+        code: 'PROCESSING_FAILED',
+        category: 'gateway',
+        retryable: true
+      };
+    }
+
+    return {
+      success: true,
+      walletTransactionId: `SP${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
+      reference: `SADA_${this.generateReference()}`,
+      gatewayStatus: 'success',
+      gatewayMessage: 'SadaPay payment processed successfully'
+    };
+  }
+
+  // Generic wallet processing
+  async processGenericWalletPayment(walletType, amount, phone) {
+    const random = Math.random();
+    
+    if (random > 0.95) { // 5% failures
+      return {
+        success: false,
+        message: `${walletType} payment failed. Please try again.`,
+        code: 'PAYMENT_FAILED',
+        category: 'gateway',
+        retryable: true
+      };
+    }
+
+    return {
+      success: true,
+      walletTransactionId: `${walletType.toUpperCase()}${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
+      reference: `${walletType.toUpperCase()}_${this.generateReference()}`,
+      gatewayStatus: 'success',
+      gatewayMessage: `${walletType} payment processed successfully`
+    };
   }
 
   // Bank Transfer Processing
