@@ -7,24 +7,20 @@ class PaymentService {
     this.vendorBills = [];
     this.vendorPayments = [];
     this.paymentProofs = [];
+    this.recurringPayments = [];
+    this.scheduledPayments = [];
+    this.paymentAutomationRules = [];
     this.currentUserRole = 'admin';
     this.financeManagerRole = 'finance_manager';
+    this.recurringPaymentIdCounter = 1;
+    this.scheduledPaymentIdCounter = 1;
+    this.automationRuleIdCounter = 1;
     this.cardBrands = {
       '4': 'visa',
       '5': 'mastercard',
       '3': 'amex',
       '6': 'discover'
     };
-    
-    // Initialize recurring payment automation storage
-    this.recurringPayments = [];
-    this.recurringPaymentIdCounter = 1;
-    this.scheduledPayments = [];
-    this.scheduledPaymentIdCounter = 1;
-    this.paymentAutomationRules = [];
-    this.automationRuleIdCounter = 1;
-    
-    // Initialize payment gateways storage
     this.paymentGateways = [
       {
         Id: 1,
@@ -62,6 +58,84 @@ class PaymentService {
         instructions: 'Send money to the above EasyPaisa number and upload payment screenshot.'
       }
     ];
+  }
+
+  // Pakistani mobile networks with their prefixes
+// Pakistani mobile networks with their prefixes
+  static PAKISTANI_NETWORKS = {
+    JAZZ: ['030', '031', '032', '033', '034', '035', '036', '037', '038', '039'],
+    TELENOR: ['340', '341', '342', '343', '344', '345', '346', '347', '348', '349'],
+    ZONG: ['310', '311', '312', '313', '314', '315', '316', '317', '318', '319'],
+    UFONE: ['333', '334', '335', '336', '337'],
+    WARID: ['321', '322', '323', '324', '325'],
+    SCOM: ['355', '356', '357', '358', '359']
+  };
+
+  // Get all valid Pakistani mobile prefixes
+  static getAllValidPrefixes() {
+    return Object.values(PaymentService.PAKISTANI_NETWORKS).flat();
+  }
+
+  // Pakistani mobile number validation with comprehensive network support
+  validatePakistaniPhone(phone) {
+    if (!phone) return false;
+    
+    // Remove any spaces, dashes, parentheses, or other formatting
+    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+    
+    // Normalize different formats to standard 11-digit format
+    let normalized = cleaned;
+    if (cleaned.startsWith('923') && cleaned.length === 12) {
+      normalized = '0' + cleaned.substring(2); // Convert 923xxxxxxxxx to 03xxxxxxxxx
+    } else if (cleaned.startsWith('92') && cleaned.length === 11) {
+      normalized = '0' + cleaned.substring(2); // Convert 92xxxxxxxxx to 03xxxxxxxxx
+    }
+    
+    // Check if it's a valid 11-digit Pakistani mobile number
+    if (!/^03[0-9]{9}$/.test(normalized)) {
+      return false;
+    }
+    
+    // Extract the prefix (first 3 digits)
+    const prefix = normalized.substring(0, 3);
+    
+    // Check if prefix is valid for any Pakistani network
+    const allPrefixes = PaymentService.getAllValidPrefixes();
+    return allPrefixes.includes(prefix);
+  }
+
+  // Get network name from phone number
+  getNetworkFromPhone(phone) {
+    if (!this.validatePakistaniPhone(phone)) {
+      return null;
+    }
+    
+    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+    let normalized = cleaned;
+    if (cleaned.startsWith('923') && cleaned.length === 12) {
+      normalized = '0' + cleaned.substring(2);
+    } else if (cleaned.startsWith('92') && cleaned.length === 11) {
+      normalized = '0' + cleaned.substring(2);
+    }
+    
+    const prefix = normalized.substring(0, 3);
+    
+    for (const [network, prefixes] of Object.entries(PaymentService.PAKISTANI_NETWORKS)) {
+      if (prefixes.includes(prefix)) {
+        return network;
+      }
+    }
+    
+    return null;
+  }
+
+  // Generate unique transaction ID
+  generateTransactionId() {
+    return `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+  }
+async getPaymentMethods() {
+    await this.delay(200);
+    return this.paymentGateways.filter(gateway => gateway.enabled);
   }
 
   // Card Payment Processing
@@ -151,25 +225,20 @@ class PaymentService {
         phone,
         status: 'completed',
         transactionId,
-        timestamp: new Date().toISOString(),
-        processingFee: fee,
-        retryCount,
-        gatewayResponse: {
-          walletTransactionId: paymentResult.walletTransactionId || this.generateWalletTransactionId(walletType),
-          reference: paymentResult.reference || this.generateReference(),
-          gatewayStatus: paymentResult.gatewayStatus || 'success',
-          gatewayMessage: paymentResult.gatewayMessage || 'Payment processed successfully'
+processingFee: 0,
+        gatewayResponse: paymentResult.gatewayResponse || {
+          walletTransactionId: paymentResult.walletTransactionId,
+          reference: paymentResult.reference,
+          authCode: this.generateAuthCode()
         }
       };
 
       this.transactions.push(transaction);
-      console.log(`[PaymentService] ${walletType} payment successful - Transaction: ${transactionId}`);
       return { ...transaction };
-
+      
     } catch (error) {
       console.error(`[PaymentService] ${walletType} payment failed:`, error);
       
-      // Log failed transaction
       const failedTransaction = {
         Id: this.getNextId(),
         orderId,
@@ -200,7 +269,6 @@ class PaymentService {
       throw error;
     }
   }
-
   // Simulate gateway-specific payment processing
   async simulateGatewayPayment(walletType, amount, phone) {
     // Simulate network delay
@@ -221,18 +289,35 @@ class PaymentService {
     }
   }
 
-  // JazzCash-specific processing
+// JazzCash-specific processing
   async processJazzCashPayment(amount, phone) {
-    // Simulate JazzCash-specific validation
-    if (!phone.startsWith('0300') && !phone.startsWith('0301') && !phone.startsWith('0302')) {
+    // Validate phone number format
+    if (!this.validatePakistaniPhone(phone)) {
       return {
         success: false,
-        message: 'Invalid JazzCash number. Please use a valid Jazz number.',
-        code: 'INVALID_JAZZCASH_NUMBER',
+        message: 'Invalid phone number format. Please use a valid Pakistani mobile number (03xxxxxxxxx or +923xxxxxxxxx)',
+        code: 'INVALID_PHONE_FORMAT',
         category: 'validation',
         retryable: false
       };
     }
+
+    // Check if phone number is from supported networks for JazzCash
+    const network = this.getNetworkFromPhone(phone);
+    const jazzCashSupportedNetworks = ['JAZZ', 'TELENOR', 'ZONG', 'UFONE', 'WARID'];
+    
+    if (!jazzCashSupportedNetworks.includes(network)) {
+      return {
+        success: false,
+        message: `JazzCash is not supported for ${network} numbers. Please use a Jazz, Telenor, Zong, Ufone, or Warid number.`,
+        code: 'UNSUPPORTED_NETWORK_JAZZCASH',
+        category: 'validation',
+        retryable: false
+      };
+    }
+
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Simulate realistic success/failure rates
     const random = Math.random();
@@ -268,16 +353,35 @@ class PaymentService {
   }
 
   // EasyPaisa-specific processing
-  async processEasyPaisaPayment(amount, phone) {
-    if (!phone.startsWith('0345') && !phone.startsWith('0346') && !phone.startsWith('0347')) {
+async processEasyPaisaPayment(amount, phone) {
+    // Validate phone number format
+    if (!this.validatePakistaniPhone(phone)) {
       return {
         success: false,
-        message: 'Invalid EasyPaisa number. Please use a valid Telenor number.',
-        code: 'INVALID_EASYPAISA_NUMBER',
+        message: 'Invalid phone number format. Please use a valid Pakistani mobile number (03xxxxxxxxx or +923xxxxxxxxx)',
+        code: 'INVALID_PHONE_FORMAT',
         category: 'validation',
         retryable: false
       };
     }
+
+    // EasyPaisa supports multiple networks, not just Telenor
+    const network = this.getNetworkFromPhone(phone);
+    const easyPaisaSupportedNetworks = ['JAZZ', 'TELENOR', 'ZONG', 'UFONE', 'WARID'];
+    
+    if (!easyPaisaSupportedNetworks.includes(network)) {
+      return {
+        success: false,
+        message: `EasyPaisa is not supported for ${network} numbers. Please use a Jazz, Telenor, Zong, Ufone, or Warid number.`,
+        code: 'UNSUPPORTED_NETWORK_EASYPAISA',
+        category: 'validation',
+        retryable: false
+      };
+    }
+}
+
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1800));
 
     const random = Math.random();
     
@@ -300,106 +404,133 @@ class PaymentService {
     };
   }
 
-  // UPaisa-specific processing
+// UPaisa payment processing with enhanced validation
   async processUPaisaPayment(amount, phone) {
-    if (!phone.startsWith('0341') && !phone.startsWith('0342') && !phone.startsWith('0343')) {
+    // Validate phone number format
+    if (!this.validatePakistaniPhone(phone)) {
       return {
         success: false,
-        message: 'Invalid UPaisa number. Please use a valid Ufone number.',
-        code: 'INVALID_UPAISA_NUMBER',
+        message: 'Invalid phone number format. Please use a valid Pakistani mobile number (03xxxxxxxxx or +923xxxxxxxxx)',
+        code: 'INVALID_PHONE_FORMAT',
         category: 'validation',
         retryable: false
       };
     }
 
-    const random = Math.random();
+    // UPaisa primarily supports Ufone network
+    const network = this.getNetworkFromPhone(phone);
+    const uPaisaSupportedNetworks = ['UFONE', 'JAZZ', 'TELENOR']; // UPaisa has expanded support
     
-    if (random > 0.96) { // 4% failures
+    if (!uPaisaSupportedNetworks.includes(network)) {
       return {
         success: false,
-        message: 'UPaisa transaction failed. Please try again.',
-        code: 'TRANSACTION_FAILED',
-        category: 'gateway',
-        retryable: true
+        message: `UPaisa is not supported for ${network} numbers. Please use a Ufone, Jazz, or Telenor number.`,
+        code: 'UNSUPPORTED_NETWORK_UPAISA',
+        category: 'validation',
+        retryable: false
       };
     }
 
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Simulate 80% success rate
+    const success = Math.random() > 0.2;
+    
     return {
-      success: true,
-      walletTransactionId: `UP${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
-      reference: `UPAISA_${this.generateReference()}`,
-      gatewayStatus: 'success',
-      gatewayMessage: 'UPaisa payment processed successfully'
+      success,
+      message: success ? 'UPaisa payment processed successfully' : 'UPaisa payment failed. Please try again.',
+      code: success ? 'UPAISA_SUCCESS' : 'UPAISA_FAILED',
+      category: 'gateway',
+      retryable: !success,
+      walletTransactionId: success ? `UP${Date.now()}${Math.random().toString(36).substr(2, 9)}` : null,
+      reference: success ? `UPAISA_${this.generateReference()}` : null,
+      gatewayStatus: success ? 'success' : 'failed',
+      gatewayMessage: success ? 'UPaisa payment processed successfully' : 'UPaisa payment failed'
     };
   }
 
-  // SadaPay-specific processing
+// SadaPay payment processing with improved validation
   async processSadaPayPayment(amount, phone) {
-    const random = Math.random();
-    
-    if (random > 0.98) { // 2% failures
+    // Validate phone number format
+    if (!this.validatePakistaniPhone(phone)) {
       return {
         success: false,
-        message: 'SadaPay payment processing failed.',
-        code: 'PROCESSING_FAILED',
-        category: 'gateway',
-        retryable: true
+        message: 'Invalid phone number format. Please use a valid Pakistani mobile number (03xxxxxxxxx or +923xxxxxxxxx)',
+        code: 'INVALID_PHONE_FORMAT',
+        category: 'validation',
+        retryable: false
       };
     }
 
+    // SadaPay supports multiple networks
+    const network = this.getNetworkFromPhone(phone);
+    const sadaPaySupportedNetworks = ['JAZZ', 'TELENOR', 'ZONG', 'UFONE'];
+    
+    if (!sadaPaySupportedNetworks.includes(network)) {
+      return {
+        success: false,
+        message: `SadaPay is not supported for ${network} numbers. Please use a Jazz, Telenor, Zong, or Ufone number.`,
+        code: 'UNSUPPORTED_NETWORK_SADAPAY',
+        category: 'validation',
+        retryable: false
+      };
+    }
+
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1800));
+
+    // Simulate 75% success rate
+    const success = Math.random() > 0.25;
+    
     return {
-      success: true,
-      walletTransactionId: `SP${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
-      reference: `SADA_${this.generateReference()}`,
-      gatewayStatus: 'success',
-      gatewayMessage: 'SadaPay payment processed successfully'
+      success,
+      message: success ? 'SadaPay payment processed successfully' : 'SadaPay payment failed. Please try again.',
+      code: success ? 'SADAPAY_SUCCESS' : 'SADAPAY_FAILED',
+      category: 'gateway',
+      retryable: !success,
+      walletTransactionId: success ? `SP${Date.now()}${Math.random().toString(36).substr(2, 9)}` : null,
+      reference: success ? `SADAPAY_${this.generateReference()}` : null,
+      gatewayStatus: success ? 'success' : 'failed',
+      gatewayMessage: success ? 'SadaPay payment processed successfully' : 'SadaPay payment failed'
     };
   }
 
-  // Generic wallet processing
+  // Generic digital wallet payment processing with enhanced validation
   async processGenericWalletPayment(walletType, amount, phone) {
-    const random = Math.random();
-    
-    if (random > 0.95) { // 5% failures
+    // Validate phone number format
+    if (!this.validatePakistaniPhone(phone)) {
       return {
         success: false,
-        message: `${walletType} payment failed. Please try again.`,
-        code: 'PAYMENT_FAILED',
-        category: 'gateway',
-        retryable: true
+        message: 'Invalid phone number format. Please use a valid Pakistani mobile number (03xxxxxxxxx or +923xxxxxxxxx)',
+        code: 'INVALID_PHONE_FORMAT',
+        category: 'validation',
+        retryable: false
       };
     }
 
+    // Check network compatibility for the wallet type
+    const network = this.getNetworkFromPhone(phone);
+    const networkInfo = network ? ` (${network} network)` : '';
+    
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 2500));
+
+    // Simulate 70% success rate for generic wallets
+    const success = Math.random() > 0.3;
+    
     return {
-      success: true,
-      walletTransactionId: `${walletType.toUpperCase()}${Date.now()}${Math.random().toString(36).substr(2, 9)}`,
-      reference: `${walletType.toUpperCase()}_${this.generateReference()}`,
-      gatewayStatus: 'success',
-      gatewayMessage: `${walletType} payment processed successfully`
+      success,
+      message: success ? `${walletType} payment processed successfully${networkInfo}` : `${walletType} payment failed. Please try again.`,
+      code: success ? 'GENERIC_SUCCESS' : 'GENERIC_FAILED',
+      category: 'gateway',
+      retryable: !success,
+      walletTransactionId: success ? `${walletType.toUpperCase()}${Date.now()}${Math.random().toString(36).substr(2, 9)}` : null,
+      reference: success ? `${walletType.toUpperCase()}_${this.generateReference()}` : null,
+      gatewayStatus: success ? 'success' : 'failed',
+      gatewayMessage: success ? `${walletType} payment processed successfully` : `${walletType} payment failed`
     };
   }
-
-  // Bank Transfer Processing
-  async processBankTransfer(amount, orderId, bankDetails) {
-    await this.delay(1000);
-
-    const transaction = {
-      Id: this.getNextId(),
-      orderId,
-      amount,
-      paymentMethod: 'bank',
-      bankAccount: bankDetails?.accountNumber?.slice(-4) || 'XXXX',
-      status: 'pending_verification',
-      transactionId: this.generateTransactionId(),
-      timestamp: new Date().toISOString(),
-      processingFee: 20,
-      requiresVerification: true,
-      gatewayResponse: {
-        reference: this.generateReference(),
-        instructions: 'Please transfer the amount to the provided bank account and upload the receipt.'
-      }
-    };
-
     this.transactions.push(transaction);
     return { ...transaction };
   }
@@ -541,13 +672,8 @@ async getAvailablePaymentMethods() {
 
     return { valid: true };
   }
-
-  validatePakistaniPhone(phone) {
-    const cleanPhone = phone.replace(/\D/g, '');
-    return cleanPhone.length === 11 && cleanPhone.startsWith('03');
-  }
-
-  getCardBrand(cardNumber) {
+getCardBrand(cardNumber) {
+getCardBrand(cardNumber) {
     const firstDigit = cardNumber.charAt(0);
     return this.cardBrands[firstDigit] || 'unknown';
   }
@@ -556,12 +682,6 @@ async getAvailablePaymentMethods() {
     const feePercent = 0.01; // 1%
     const minimumFee = 5;
     return Math.max(amount * feePercent, minimumFee);
-  }
-
-generateTransactionId() {
-    const timestamp = Date.now().toString();
-    const randomStr = Math.random().toString(36).substr(2, 5).toUpperCase();
-    return `TXN${timestamp}${randomStr}`;
   }
 
   generateAuthCode() {
@@ -581,8 +701,9 @@ generateTransactionId() {
     const maxId = this.transactions.reduce((max, transaction) => 
       transaction.Id > max ? transaction.Id : max, 0);
     return maxId + 1;
-  }
-// Wallet Management Methods
+}
+
+  // Wallet Management Methods
   async getWalletBalance() {
     await this.delay(200);
     return this.walletBalance;
@@ -721,7 +842,6 @@ generateTransactionId() {
       transaction.Id > max ? transaction.Id : max, 0);
     return maxId + 1;
   }
-
 // Gateway Configuration Management
   async getGatewayConfig() {
     await this.delay(200);
@@ -751,7 +871,6 @@ generateTransactionId() {
     // In a real implementation, this would update the gateway configuration
     return { success: true, gatewayId, config };
   }
-
 async getGatewayStatus(gatewayId) {
     await this.delay(200);
     const gateway = this.paymentGateways.find(g => g.Id === gatewayId);
@@ -847,7 +966,6 @@ async getGatewayStatus(gatewayId) {
       gateway.Id > max ? gateway.Id : max, 0);
     return maxId + 1;
   }
-
 delay(ms = 300) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
@@ -1261,7 +1379,6 @@ delay(ms = 300) {
     dueDate.setDate(dueDate.getDate() + days);
     return dueDate.toISOString();
   }
-
 generateFileUrl(fileName) {
     // Simulate file URL generation
     return `https://storage.example.com/proofs/${Date.now()}-${fileName}`;
@@ -1406,8 +1523,8 @@ generateFileUrl(fileName) {
 
     // Mark as deleted instead of removing (for audit trail)
     this.paymentProofs[index].status = 'deleted';
-    this.paymentProofs[index].deletedAt = new Date().toISOString();
-this.paymentProofs[index].deletedBy = this.currentUserRole;
+this.paymentProofs[index].deletedAt = new Date().toISOString();
+    this.paymentProofs[index].deletedBy = this.currentUserRole;
 
     return { success: true };
   }
@@ -1736,8 +1853,7 @@ this.paymentProofs[index].deletedBy = this.currentUserRole;
       scheduledPayment.paymentId = payment.Id;
 
       return { success: true, payment };
-
-    } catch (error) {
+} catch (error) {
       // Handle payment failure
       recurring.totalPayments++;
       recurring.failedPayments++;
