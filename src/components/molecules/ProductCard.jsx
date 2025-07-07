@@ -1,25 +1,27 @@
 import React, { memo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
+import { useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { addToCart, selectCartLoading, setLoading } from "@/store/cartSlice";
+import { selectCartLoading } from "@/store/cartSlice";
+import useCart from "@/hooks/useCart";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
 
 const ProductCard = memo(({ product }) => {
   const navigate = useNavigate();
-  const dispatch = useDispatch();
+  const { addToCart } = useCart();
   const isLoading = useSelector(selectCartLoading);
-const handleAddToCart = useCallback((e) => {
+  
+  const handleAddToCart = useCallback(async (e) => {
     e.stopPropagation();
-    dispatch(setLoading(true));
-    setTimeout(() => {
-      dispatch(addToCart(product));
-      dispatch(setLoading(false));
+    try {
+      await addToCart(product);
       toast.success(`${product.name} added to cart!`, { autoClose: 2000 });
-    }, 200);
-  }, [dispatch, product]);
+    } catch (error) {
+      toast.error(error.message || 'Failed to add to cart');
+    }
+  }, [addToCart, product]);
 
   const handleCardClick = useCallback(() => {
     navigate(`/product/${product.id}`);

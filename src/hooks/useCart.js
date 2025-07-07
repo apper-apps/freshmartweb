@@ -5,6 +5,8 @@ import {
   removeFromCart as removeFromCartAction, 
   updateQuantity as updateQuantityAction, 
   clearCart as clearCartAction,
+  addToCartWithValidation,
+  updateQuantityWithValidation,
   setLoading,
   selectCartItems,
   selectCartTotal,
@@ -28,15 +30,16 @@ const useCart = () => {
   const isLoading = useSelector(selectCartLoading);
   
   // Cart actions with error handling
-  const addToCart = async (product) => {
+const addToCart = async (product) => {
     try {
-      dispatch(setLoading(true));
-      await dispatch(addToCartAction(product));
+      const result = await dispatch(addToCartWithValidation(product.id || product.Id));
+      if (addToCartWithValidation.rejected.match(result)) {
+        throw new Error(result.payload);
+      }
+      return result;
     } catch (error) {
       console.error('Error adding to cart:', error);
       throw error;
-    } finally {
-      dispatch(setLoading(false));
     }
   };
   
@@ -52,15 +55,16 @@ const useCart = () => {
     }
   };
   
-  const updateQuantity = async (productId, quantity) => {
+const updateQuantity = async (productId, quantity) => {
     try {
-      dispatch(setLoading(true));
-      await dispatch(updateQuantityAction({ productId, quantity }));
+      const result = await dispatch(updateQuantityWithValidation({ productId, quantity }));
+      if (updateQuantityWithValidation.rejected.match(result)) {
+        throw new Error(result.payload);
+      }
+      return result;
     } catch (error) {
       console.error('Error updating quantity:', error);
       throw error;
-    } finally {
-      dispatch(setLoading(false));
     }
   };
   

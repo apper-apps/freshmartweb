@@ -36,14 +36,19 @@ const ProductDetail = () => {
     }
   };
 
-  const handleAddToCart = () => {
+const handleAddToCart = async () => {
     if (!product) return;
     
-    for (let i = 0; i < quantity; i++) {
-      addToCart(product);
+    try {
+      // Add to cart with proper quantity validation
+      for (let i = 0; i < quantity; i++) {
+        await addToCart(product);
+      }
+      
+      toast.success(`${quantity} x ${product.name} added to cart!`);
+    } catch (error) {
+      toast.error(error.message || 'Failed to add to cart');
     }
-    
-    toast.success(`${quantity} x ${product.name} added to cart!`);
   };
 
   const handleBuyNow = () => {

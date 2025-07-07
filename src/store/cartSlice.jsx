@@ -19,10 +19,10 @@ export const validateCartPrices = createAsyncThunk(
     try {
       const { cart } = getState();
       const validationResults = [];
-      
-      for (const item of cart.items) {
+for (const item of cart.items) {
         try {
-          const currentProduct = await productService.getById(item.id);
+          const productResponse = await productService.getById(item.id);
+          const currentProduct = productResponse.data || productResponse;
           const priceChanged = currentProduct.price !== item.price;
           const stockChanged = currentProduct.stock !== item.stock;
           
@@ -57,14 +57,14 @@ export const validateCartPrices = createAsyncThunk(
 
 export const addToCartWithValidation = createAsyncThunk(
   'cart/addWithValidation',
-  async (productId, { getState, rejectWithValue }) => {
+async (productId, { getState, rejectWithValue }) => {
     try {
-      const product = await productService.getById(productId);
+      const productResponse = await productService.getById(productId);
+      const product = productResponse.data || productResponse;
       
-      if (!product.isActive) {
+      if (!product || !product.isActive) {
         throw new Error('Product is no longer available');
       }
-      
       if (product.stock <= 0) {
         throw new Error('Product is out of stock');
       }
@@ -85,18 +85,18 @@ export const addToCartWithValidation = createAsyncThunk(
 
 export const updateQuantityWithValidation = createAsyncThunk(
   'cart/updateQuantityWithValidation',
-  async ({ productId, quantity }, { rejectWithValue }) => {
+async ({ productId, quantity }, { rejectWithValue }) => {
     try {
-      const product = await productService.getById(productId);
+      const productResponse = await productService.getById(productId);
+      const product = productResponse.data || productResponse;
       
-      if (!product.isActive) {
+      if (!product || !product.isActive) {
         throw new Error('Product is no longer available');
       }
       
       if (quantity > product.stock) {
         throw new Error(`Only ${product.stock} ${product.unit || 'pieces'} available in stock`);
       }
-      
       return { productId, quantity, currentProduct: product };
     } catch (error) {
       return rejectWithValue(error.message);

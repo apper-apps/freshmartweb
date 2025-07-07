@@ -104,9 +104,10 @@ export const getProductById = async (id) => {
       throw new Error('Product not found');
     }
 
+    // Return direct product object for cart compatibility
     return {
-      success: true,
-      data: product
+      ...product,
+      isActive: true // Ensure product is marked as active
     };
   } catch (error) {
     console.error('Error fetching product:', error);
