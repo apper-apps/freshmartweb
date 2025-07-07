@@ -17,7 +17,6 @@ import { fileCleanupService } from "@/services/api/fileCleanupService";
 
 // Lazy load components for better performance
 const AdminDashboard = React.lazy(() => import('@/components/pages/AdminDashboard'))
-const ProductManagement = React.lazy(() => import('@/components/pages/ProductManagement'))
 const Analytics = React.lazy(() => import('@/components/pages/Analytics'))
 const FinancialDashboard = React.lazy(() => import('@/components/pages/FinancialDashboard'))
 const POS = React.lazy(() => import('@/components/pages/POS'))
@@ -29,7 +28,6 @@ const Category = React.lazy(() => import('@/components/pages/Category'))
 const Orders = React.lazy(() => import('@/components/pages/Orders'))
 const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'))
 const Account = React.lazy(() => import('@/components/pages/Account'))
-
 // Error boundary component for better error handling
 function LazyErrorBoundary({ children, fallback }) {
   const [hasError, setHasError] = useState(false)
@@ -327,11 +325,6 @@ function App() {
                   <Route path="admin/dashboard" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <AdminDashboard />
-                    </Suspense>
-                  } />
-                  <Route path="admin/products" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <ProductManagement />
                     </Suspense>
                   } />
                   <Route path="admin/pos" element={
