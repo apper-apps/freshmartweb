@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { store } from "@/store/index";
@@ -30,7 +30,8 @@ const AdminDashboard = () => {
   const [sortedOrders, setSortedOrders] = useState([]);
   const [walletLoading, setWalletLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);
-  const [revenueBreakdown, setRevenueBreakdown] = useState([]);
+const [revenueBreakdown, setRevenueBreakdown] = useState([]);
+  const navigate = useNavigate();
 
   const loadDashboardData = async () => {
     setLoading(true);
