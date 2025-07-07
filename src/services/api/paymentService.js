@@ -1392,15 +1392,17 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
     // Enhanced image-only validation for payment proofs
     const validationResult = await this.validateImageUpload(file);
     if (!validationResult.isValid) {
-      throw new Error(validationResult.error);
+throw new Error(validationResult.error);
     }
 
-    // Simulate ClamAV malware scanning
+    // Enhanced ClamAV malware scanning with quarantine
     const scanResult = await this.performMalwareScan(file);
     if (!scanResult.isClean) {
-      throw new Error('File failed security scan. Please ensure the file is safe and try again.');
+      // File has been quarantined, provide detailed error
+      const quarantineInfo = scanResult.quarantineId ? 
+        ` File has been quarantined for security review (ID: ${scanResult.quarantineId}).` : '';
+      throw new Error(`File failed security scan due to detected threats: ${scanResult.threats.join(', ')}.${quarantineInfo} Please ensure the file is safe and try again.`);
     }
-
     // Generate unique filename with OrderID_UserID_Timestamp pattern
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 8);
@@ -1537,27 +1539,160 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
 
     return { isValid: true };
   }
-
-  // Simulate ClamAV malware scanning
+// Enhanced ClamAV malware scanning with quarantine capabilities
   async performMalwareScan(file) {
-    await this.delay(200); // Simulate scan time
+    await this.delay(300); // Simulate comprehensive scan time
     
-    // Simulate scanning process
+    // Initialize quarantine system if not exists
+    if (!this.quarantineStorage) {
+      this.quarantineStorage = [];
+      this.quarantineIdCounter = 1;
+    }
+    
+    // Simulate comprehensive scanning process
     const scanResults = {
       scannedAt: new Date().toISOString(),
-      scanEngine: 'ClamAV-Mock',
-      scanVersion: '1.0.0',
-      isClean: Math.random() > 0.001, // 99.9% clean files
+      scanEngine: 'ClamAV-Enhanced',
+      scanVersion: '1.2.0',
+      isClean: Math.random() > 0.002, // 99.8% clean files (slightly higher detection rate)
       threats: [],
-      scanTime: Math.floor(Math.random() * 500) + 100 // 100-600ms scan time
+      scanTime: Math.floor(Math.random() * 800) + 200, // 200-1000ms scan time
+      quarantineRequired: false,
+      quarantineId: null,
+      scanDepth: 'deep',
+      heuristicAnalysis: true,
+      signatureMatches: 0,
+      riskLevel: 'low'
     };
 
-    // Simulate threat detection (very rare)
+    // Simulate threat detection with quarantine workflow
     if (!scanResults.isClean) {
-      scanResults.threats = ['Generic.Malware.Test'];
+      // Generate threat details
+      const threatTypes = [
+        'Trojan.Generic.Suspicious',
+        'Malware.Win32.Agent',
+        'Adware.Bundle.Detected',
+        'PUA.Potentially.Unwanted',
+        'Phishing.Email.Attachment'
+      ];
+      
+      scanResults.threats = [threatTypes[Math.floor(Math.random() * threatTypes.length)]];
+      scanResults.quarantineRequired = true;
+      scanResults.riskLevel = 'high';
+      scanResults.signatureMatches = Math.floor(Math.random() * 3) + 1;
+      
+      // Quarantine the suspicious file
+      const quarantineEntry = await this.quarantineFile(file, scanResults);
+      scanResults.quarantineId = quarantineEntry.Id;
     }
 
     return scanResults;
+  }
+
+  // Quarantine system for suspicious files
+  async quarantineFile(file, scanResults) {
+    const quarantineEntry = {
+      Id: this.quarantineIdCounter++,
+      originalFileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      quarantinedAt: new Date().toISOString(),
+      threats: scanResults.threats,
+      riskLevel: scanResults.riskLevel,
+      scanEngine: scanResults.scanEngine,
+      status: 'quarantined',
+      isolationLevel: 'strict',
+      quarantineLocation: `quarantine/isolation/${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      reviewRequired: true,
+      autoDeleteAfter: this.calculateQuarantineExpiry(),
+      metadata: {
+        originalUploadAttempt: new Date().toISOString(),
+        detectionDetails: scanResults.threats,
+        scanTime: scanResults.scanTime,
+        heuristics: scanResults.heuristicAnalysis
+      }
+    };
+
+    this.quarantineStorage.push(quarantineEntry);
+    
+    // Log quarantine action for audit trail
+    await this.logQuarantineAction(quarantineEntry, 'file_quarantined');
+    
+    return quarantineEntry;
+  }
+
+  // Calculate quarantine expiry (30 days default)
+  calculateQuarantineExpiry() {
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 30);
+    return expiryDate.toISOString();
+  }
+
+  // Log quarantine actions for comprehensive audit trail
+  async logQuarantineAction(quarantineEntry, action) {
+    const auditEntry = {
+      timestamp: new Date().toISOString(),
+      action: action,
+      quarantineId: quarantineEntry.Id,
+      fileName: quarantineEntry.originalFileName,
+      threats: quarantineEntry.threats,
+      riskLevel: quarantineEntry.riskLevel,
+      performedBy: 'clamav_scanner',
+      ipAddress: '127.0.0.1',
+      userAgent: 'ClamAV-Scanner'
+    };
+    
+    // In real implementation, this would be sent to audit logging service
+    console.log('Quarantine audit log:', auditEntry);
+  }
+
+  // Get quarantined files for admin review
+  async getQuarantinedFiles() {
+    await this.delay(200);
+    if (!this.quarantineStorage) return [];
+    
+    return [...this.quarantineStorage]
+      .sort((a, b) => new Date(b.quarantinedAt) - new Date(a.quarantinedAt));
+  }
+
+  // Admin quarantine management
+  async reviewQuarantinedFile(quarantineId, action, adminRole = 'admin') {
+    await this.delay(300);
+    
+    if (!this.validateAdminAccess(adminRole)) {
+      throw new Error('Admin authentication required for quarantine management');
+    }
+
+    const quarantineEntry = this.quarantineStorage?.find(q => q.Id === quarantineId);
+    if (!quarantineEntry) {
+      throw new Error('Quarantined file not found');
+    }
+
+    const validActions = ['release', 'delete', 'extend_quarantine'];
+    if (!validActions.includes(action)) {
+      throw new Error('Invalid quarantine action');
+    }
+
+    quarantineEntry.reviewedAt = new Date().toISOString();
+    quarantineEntry.reviewedBy = adminRole;
+    quarantineEntry.action = action;
+
+    switch (action) {
+      case 'release':
+        quarantineEntry.status = 'released';
+        break;
+      case 'delete':
+        quarantineEntry.status = 'deleted';
+        quarantineEntry.deletedAt = new Date().toISOString();
+        break;
+      case 'extend_quarantine':
+        quarantineEntry.autoDeleteAfter = this.calculateQuarantineExpiry();
+        quarantineEntry.status = 'extended';
+        break;
+    }
+
+    await this.logQuarantineAction(quarantineEntry, `quarantine_${action}`);
+    return { ...quarantineEntry };
   }
 
   // Generate secure thumbnail with 200x200 WebP format
@@ -1652,7 +1787,7 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
   }
 
 // Enhanced admin access with pre-signed S3 URLs and 5-minute expiry
-  async servePaymentProofForAdmin(fileName, userRole = 'admin', sessionToken = null, clientIP = null) {
+async servePaymentProofForAdmin(fileName, userRole = 'admin', sessionToken = null, clientIP = null) {
     await this.delay(200);
     
     // Enhanced authentication and authorization for admin access
@@ -1673,6 +1808,11 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
     // Check if file has been marked as deleted or expired
     if (proof.status === 'deleted' || proof.isDeleted) {
       throw new Error('Payment proof has been removed');
+    }
+
+    // Enhanced quarantine status check
+    if (proof.quarantineStatus === 'quarantined') {
+      throw new Error('File access denied - file is currently quarantined due to security concerns');
     }
 
     // Check file expiration (30+ days)
@@ -1701,8 +1841,8 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
     // Generate pre-signed URLs with 5-minute expiry
     const preSignedUrls = await this.generatePreSignedUrls(proof);
 
-    // Log admin access for audit trail
-    await this.logAdminFileAccess(proof, userRole, clientIP);
+    // Enhanced audit trail logging for comprehensive file access tracking
+    await this.logAdminFileAccess(proof, userRole, clientIP, sessionToken);
 
     // Return enhanced file data with pre-signed URLs and security headers
     return {
@@ -1717,6 +1857,7 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
       checksumMD5: proof.checksumMD5,
       s3Bucket: proof.s3Bucket,
       s3Key: proof.s3Key,
+      quarantineStatus: proof.quarantineStatus || 'clean',
       
       // Pre-signed URLs with 5-minute expiry
       preSignedUrls: {
@@ -1743,7 +1884,8 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
         accessedAt: new Date().toISOString(),
         accessMethod: 'admin_api_with_presigned_urls',
         sessionId: sessionToken?.substring(0, 8) + '...' || 'admin_session',
-        ipAddress: clientIP || 'unknown'
+        ipAddress: clientIP || 'unknown',
+        auditTrailId: this.generateAuditTrailId()
       }
     };
   }
@@ -1806,25 +1948,154 @@ async uploadPaymentProof(file, orderId, transactionId, userId = null) {
   }
 
   // Log admin file access for comprehensive audit trail
-  async logAdminFileAccess(proof, userRole, clientIP) {
-    const accessLog = {
+// Enhanced comprehensive audit trail logging for all file access
+  async logAdminFileAccess(proof, userRole, clientIP, sessionToken = null) {
+    // Initialize audit trail storage if not exists
+    if (!this.auditTrail) {
+      this.auditTrail = [];
+      this.auditTrailIdCounter = 1;
+    }
+
+    const auditEntry = {
+      Id: this.auditTrailIdCounter++,
       timestamp: new Date().toISOString(),
       action: 'admin_file_access',
       fileId: proof.Id,
       fileName: proof.fileName,
+      originalName: proof.originalName,
       orderId: proof.orderId,
+      transactionId: proof.transactionId,
+      userId: proof.userId,
       accessedBy: userRole,
       clientIP: clientIP || '127.0.0.1',
       userAgent: 'Admin-Dashboard',
-      accessType: 'presigned_url_generation',
+      sessionToken: sessionToken?.substring(0, 8) + '...' || 'admin_session',
+      accessType: 'view_payment_proof',
+      accessMethod: 'presigned_url_generation',
       s3Bucket: proof.s3Bucket,
       s3Key: proof.s3Key,
+      fileSize: proof.fileSize,
+      mimeType: proof.mimeType,
+      quarantineStatus: proof.quarantineStatus || 'clean',
       successful: true,
-      securityLevel: 'high'
+      securityLevel: 'high',
+      accessDuration: null, // To be updated when session ends
+      downloadAttempted: false,
+      complianceFlags: {
+        gdprCompliant: true,
+        dataRetention: '7_years',
+        auditRequired: true,
+        sensitiveData: true
+      },
+      metadata: {
+        browserFingerprint: this.generateBrowserFingerprint(),
+        geolocation: this.estimateGeolocation(clientIP),
+        accessReason: 'admin_review',
+        dataClassification: 'financial_document'
+      }
     };
+
+    this.auditTrail.push(auditEntry);
     
-    // In real implementation, send to audit logging service
-    console.log('Admin file access audit log:', accessLog);
+    // Also log to console for immediate monitoring
+    console.log('Comprehensive file access audit log:', {
+      auditId: auditEntry.Id,
+      timestamp: auditEntry.timestamp,
+      action: auditEntry.action,
+      fileName: auditEntry.fileName,
+      accessedBy: auditEntry.accessedBy,
+      clientIP: auditEntry.clientIP,
+      orderId: auditEntry.orderId,
+      successful: auditEntry.successful
+    });
+
+    return auditEntry;
+  }
+
+  // Generate unique audit trail ID
+  generateAuditTrailId() {
+    return `AUDIT_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  }
+
+  // Generate browser fingerprint for audit trail
+  generateBrowserFingerprint() {
+    return `FP_${Math.random().toString(36).substring(2, 12)}`;
+  }
+
+  // Estimate geolocation from IP (mock implementation)
+  estimateGeolocation(clientIP) {
+    const mockLocations = [
+      { country: 'Pakistan', city: 'Lahore', region: 'Punjab' },
+      { country: 'Pakistan', city: 'Karachi', region: 'Sindh' },
+      { country: 'Pakistan', city: 'Islamabad', region: 'ICT' }
+    ];
+    return mockLocations[Math.floor(Math.random() * mockLocations.length)];
+  }
+
+  // Get comprehensive audit trail for compliance
+  async getAuditTrail(filters = {}) {
+    await this.delay(200);
+    
+    if (!this.auditTrail) return [];
+
+    let filteredTrail = [...this.auditTrail];
+
+    // Apply filters
+    if (filters.startDate) {
+      filteredTrail = filteredTrail.filter(entry => 
+        new Date(entry.timestamp) >= new Date(filters.startDate)
+      );
+    }
+
+    if (filters.endDate) {
+      filteredTrail = filteredTrail.filter(entry => 
+        new Date(entry.timestamp) <= new Date(filters.endDate)
+      );
+    }
+
+    if (filters.userRole) {
+      filteredTrail = filteredTrail.filter(entry => 
+        entry.accessedBy === filters.userRole
+      );
+    }
+
+    if (filters.fileName) {
+      filteredTrail = filteredTrail.filter(entry => 
+        entry.fileName.includes(filters.fileName)
+      );
+    }
+
+    if (filters.orderId) {
+      filteredTrail = filteredTrail.filter(entry => 
+        entry.orderId === filters.orderId
+      );
+    }
+
+    return filteredTrail.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  }
+
+  // Export audit trail for compliance reporting
+  async exportAuditTrail(format = 'json', filters = {}) {
+    await this.delay(300);
+    
+    const auditData = await this.getAuditTrail(filters);
+    
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      exportedBy: this.currentUserRole,
+      format: format,
+      totalRecords: auditData.length,
+      filters: filters,
+      data: auditData,
+      compliance: {
+        dataRetentionPolicy: '7_years',
+        gdprCompliant: true,
+        auditStandard: 'ISO_27001',
+        encryptionLevel: 'AES_256'
+      }
+    };
+
+    return exportData;
   }
 
   // Enhanced secure access validation
@@ -2584,7 +2855,68 @@ this.paymentProofs[index].deletedAt = new Date().toISOString();
   }
 
   getNextAutomationRuleId() {
-    return this.automationRuleIdCounter++;
+return this.automationRuleIdCounter++;
+  }
+
+  // Quarantine management methods for admin oversight
+  async getQuarantineStatistics() {
+    await this.delay(200);
+    
+    if (!this.quarantineStorage) return { totalQuarantined: 0, activeQuarantine: 0, releasedFiles: 0, deletedFiles: 0 };
+
+    const stats = {
+      totalQuarantined: this.quarantineStorage.length,
+      activeQuarantine: this.quarantineStorage.filter(q => q.status === 'quarantined').length,
+      releasedFiles: this.quarantineStorage.filter(q => q.status === 'released').length,
+      deletedFiles: this.quarantineStorage.filter(q => q.status === 'deleted').length,
+      pendingReview: this.quarantineStorage.filter(q => q.reviewRequired && q.status === 'quarantined').length,
+      threatBreakdown: this.getQuarantineThreatBreakdown()
+    };
+
+    return stats;
+  }
+
+  getQuarantineThreatBreakdown() {
+    if (!this.quarantineStorage) return {};
+    
+    const breakdown = {};
+    this.quarantineStorage.forEach(q => {
+      q.threats.forEach(threat => {
+        breakdown[threat] = (breakdown[threat] || 0) + 1;
+      });
+    });
+    
+    return breakdown;
+  }
+
+  // Bulk quarantine operations for admin efficiency
+  async bulkQuarantineAction(quarantineIds, action, adminRole = 'admin') {
+    await this.delay(500);
+    
+    if (!this.validateAdminAccess(adminRole)) {
+      throw new Error('Admin authentication required for bulk quarantine operations');
+    }
+
+    const results = {
+      successful: 0,
+      failed: 0,
+      errors: []
+    };
+
+    for (const quarantineId of quarantineIds) {
+      try {
+        await this.reviewQuarantinedFile(quarantineId, action, adminRole);
+        results.successful++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          quarantineId,
+          error: error.message
+        });
+      }
+    }
+
+    return results;
   }
 }
 
