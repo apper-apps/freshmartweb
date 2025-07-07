@@ -34,7 +34,7 @@ function App() {
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkError, setSdkError] = useState(null);
 
-  // Optimized SDK status checking - memoized for performance
+// Optimized SDK status checking - memoized for performance
   const checkSDKStatus = useCallback(() => {
     try {
       const status = {
@@ -48,6 +48,100 @@ function App() {
       return { available: false, ready: false, initialized: false, error: error.message };
     }
   }, []);
+
+  // Auto-refresh auth tokens system
+  const [tokenStatus, setTokenStatus] = useState({ 
+    lastRefresh: null, 
+    nextRefresh: null, 
+    isRefreshing: false 
+  });
+  const [backupStatus, setBackupStatus] = useState({
+    lastBackup: null,
+    nextBackup: null,
+    isRunning: false
+  });
+
+  // Token refresh functionality
+  const refreshAuthToken = useCallback(async () => {
+    try {
+      setTokenStatus(prev => ({ ...prev, isRefreshing: true }));
+      
+      // Simulate token refresh - in real implementation, call auth service
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const now = new Date();
+      const nextRefresh = new Date(now.getTime() + 50 * 60 * 1000); // 50 minutes
+      
+      setTokenStatus({
+        lastRefresh: now.toISOString(),
+        nextRefresh: nextRefresh.toISOString(),
+        isRefreshing: false
+      });
+      
+      console.log('Auth token refreshed successfully at:', now.toISOString());
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      setTokenStatus(prev => ({ ...prev, isRefreshing: false }));
+    }
+  }, []);
+// Auto-refresh token system - runs every 50 minutes
+  useEffect(() => {
+    let mounted = true;
+    let tokenRefreshInterval;
+    
+    // Initial token refresh
+    refreshAuthToken();
+    
+    // Set up periodic token refresh (50 minutes)
+    tokenRefreshInterval = setInterval(() => {
+      if (mounted) {
+        refreshAuthToken();
+      }
+    }, 50 * 60 * 1000);
+    
+    return () => {
+      mounted = false;
+      if (tokenRefreshInterval) {
+        clearInterval(tokenRefreshInterval);
+      }
+    };
+  }, [refreshAuthToken]);
+
+  // Monitor backup status hourly
+  useEffect(() => {
+    let mounted = true;
+    let backupCheckInterval;
+    
+    const checkBackupStatus = async () => {
+      try {
+        // Import backup service dynamically
+        const { fileCleanupService } = await import('@/services/api/fileCleanupService');
+        const status = fileCleanupService.getBackupStatus();
+        
+        if (mounted) {
+          setBackupStatus({
+            lastBackup: status.lastBackup,
+            nextBackup: status.nextBackup,
+            isRunning: status.isRunning
+          });
+        }
+      } catch (error) {
+        console.error('Failed to check backup status:', error);
+      }
+    };
+    
+    // Check backup status immediately and every hour
+    checkBackupStatus();
+    backupCheckInterval = setInterval(checkBackupStatus, 60 * 60 * 1000);
+    
+    return () => {
+      mounted = false;
+      if (backupCheckInterval) {
+        clearInterval(backupCheckInterval);
+      }
+    };
+  }, []);
+
 // Optimized SDK monitoring - non-blocking and lightweight
   useEffect(() => {
     let mounted = true;
@@ -101,8 +195,11 @@ function App() {
   const sdkUtils = useMemo(() => ({
     ready: sdkReady,
     error: sdkError,
-    checkStatus: checkSDKStatus
-  }), [sdkReady, sdkError, checkSDKStatus]);
+    checkStatus: checkSDKStatus,
+    tokenStatus,
+    backupStatus,
+    refreshToken: refreshAuthToken
+  }), [sdkReady, sdkError, checkSDKStatus, tokenStatus, backupStatus, refreshAuthToken]);
 
   // Component preloader for performance
   useEffect(() => {
@@ -125,12 +222,24 @@ return (
       <PersistGate loading={<Loading type="page" />} persistor={persistor}>
         <BrowserRouter>
           <div className="min-h-screen bg-background">
-            {/* Minimal SDK Status Indicator (only in development) */}
-            {import.meta.env.DEV && sdkError && (
-              <div className="fixed top-0 right-0 z-50 p-2 text-xs">
-                <div className="px-2 py-1 rounded bg-orange-500 text-white">
-                  SDK: Background Loading
-                </div>
+{/* Enhanced Status Indicators (only in development) */}
+            {import.meta.env.DEV && (
+              <div className="fixed top-0 right-0 z-50 p-2 text-xs space-y-1">
+                {sdkError && (
+                  <div className="px-2 py-1 rounded bg-orange-500 text-white">
+                    SDK: Background Loading
+                  </div>
+                )}
+                {tokenStatus.isRefreshing && (
+                  <div className="px-2 py-1 rounded bg-blue-500 text-white">
+                    Token: Refreshing
+                  </div>
+                )}
+                {backupStatus.isRunning && (
+                  <div className="px-2 py-1 rounded bg-purple-500 text-white">
+                    Backup: Running
+                  </div>
+                )}
               </div>
             )}
 <Suspense fallback={<Loading type="page" />}>

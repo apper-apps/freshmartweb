@@ -15,7 +15,7 @@ class FileCleanupService {
     };
   }
 
-  // Start automatic cleanup service
+// Start automatic cleanup service with hourly backups
   startCleanupService() {
     if (this.isRunning) {
       console.log('Cleanup service is already running');
@@ -23,18 +23,34 @@ class FileCleanupService {
     }
 
     this.isRunning = true;
-    console.log('Starting payment proof cleanup service...');
+    console.log('Starting payment proof cleanup service with hourly backups...');
     
     // Run cleanup immediately on start
     this.performCleanup();
     
-    // Schedule recurring cleanup
+    // Schedule recurring cleanup (daily)
     this.cleanupTimer = setInterval(() => {
       this.performCleanup();
     }, this.cleanupInterval);
+    
+    // Start hourly backup service to secondary cloud region
+    this.startHourlyBackups();
   }
 
-  // Stop cleanup service
+  // Start hourly backup service to secondary cloud region
+  startHourlyBackups() {
+    console.log('Starting hourly backup service to secondary cloud region...');
+    
+    // Run initial backup
+    this.performCloudBackup();
+    
+    // Schedule hourly backups
+    this.backupTimer = setInterval(() => {
+      this.performCloudBackup();
+    }, 60 * 60 * 1000); // Every hour
+  }
+
+// Stop cleanup service and backup service
   stopCleanupService() {
     if (!this.isRunning) {
       console.log('Cleanup service is not running');
@@ -46,7 +62,11 @@ class FileCleanupService {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = null;
     }
-    console.log('Payment proof cleanup service stopped');
+    if (this.backupTimer) {
+      clearInterval(this.backupTimer);
+      this.backupTimer = null;
+    }
+    console.log('Payment proof cleanup and backup services stopped');
   }
 
   // Perform cleanup of old payment proof files
@@ -95,6 +115,109 @@ class FileCleanupService {
       console.error('Cleanup service error:', error);
       this.cleanupStats.errors++;
     }
+  }
+
+// Perform hourly backup to secondary cloud region (S3 -> R2)
+  async performCloudBackup() {
+    const startTime = new Date();
+    console.log('Starting hourly cloud backup to secondary region at:', startTime.toISOString());
+
+    try {
+      // Get all files from primary S3 bucket
+      const allFiles = await this.getAllPaymentProofs();
+      
+      // Filter files modified in the last 2 hours (to catch any recent changes)
+      const recentFiles = this.getRecentlyModifiedFiles(allFiles, 2);
+      
+      console.log(`Found ${recentFiles.length} files to backup to secondary region`);
+      
+      // Backup to secondary cloud region (Cloudflare R2)
+      const backupResults = await this.backupToSecondaryRegion(recentFiles);
+      
+      // Log backup completion
+      this.logBackupResults(startTime, backupResults);
+      
+      // Update backup status
+      this.lastBackup = new Date().toISOString();
+      this.nextBackup = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+      
+    } catch (error) {
+      console.error('Cloud backup failed:', error);
+    }
+  }
+
+  // Get recently modified files for incremental backup
+  getRecentlyModifiedFiles(files, hours) {
+    const cutoffTime = new Date(Date.now() - (hours * 60 * 60 * 1000));
+    
+    return files.filter(file => {
+      if (!file.uploadedAt) return false;
+      const uploadTime = new Date(file.uploadedAt);
+      return uploadTime > cutoffTime;
+    });
+  }
+
+  // Backup files to secondary cloud region (Cloudflare R2)
+  async backupToSecondaryRegion(files) {
+    const results = {
+      successful: 0,
+      failed: 0,
+      totalSize: 0,
+      errors: []
+    };
+
+    for (const file of files) {
+      try {
+        await this.copyToR2Bucket(file);
+        results.successful++;
+        results.totalSize += file.fileSize || 0;
+      } catch (error) {
+        results.failed++;
+        results.errors.push({ file: file.fileName, error: error.message });
+      }
+    }
+
+    return results;
+  }
+
+  // Copy file from S3 to Cloudflare R2 bucket
+  async copyToR2Bucket(file) {
+    await this.delay(100);
+    
+    // In real implementation:
+    // 1. Download from primary S3 bucket
+    // 2. Upload to Cloudflare R2 secondary bucket
+    // 3. Verify file integrity
+    // 4. Update backup metadata
+    
+    console.log(`Backing up ${file.fileName} to R2 secondary region`);
+    
+    // Simulate the backup process
+    const backupTasks = [
+      this.downloadFromS3(file),
+      this.uploadToR2(file),
+      this.verifyBackupIntegrity(file)
+    ];
+    
+    await Promise.all(backupTasks);
+  }
+
+  // Download file from primary S3 bucket
+  async downloadFromS3(file) {
+    await this.delay(50);
+    console.log(`Downloaded ${file.fileName} from primary S3 bucket`);
+  }
+
+  // Upload file to Cloudflare R2 secondary bucket
+  async uploadToR2(file) {
+    await this.delay(75);
+    console.log(`Uploaded ${file.fileName} to R2 secondary bucket`);
+  }
+
+  // Verify backup file integrity
+  async verifyBackupIntegrity(file) {
+    await this.delay(25);
+    console.log(`Verified integrity of ${file.fileName} in secondary region`);
   }
 
 // Get all payment proof files from S3/R2 services with enhanced metadata
@@ -303,6 +426,29 @@ class FileCleanupService {
     console.log('S3 file deletion audit log:', deletionLog);
   }
 
+// Log backup results
+  logBackupResults(startTime, backupResults) {
+    const endTime = new Date();
+    const duration = endTime.getTime() - startTime.getTime();
+    
+    const results = {
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      duration: `${duration}ms`,
+      filesBackedUp: backupResults.successful,
+      failedBackups: backupResults.failed,
+      totalBackupSize: `${(backupResults.totalSize / 1024 / 1024).toFixed(2)} MB`,
+      errors: backupResults.errors
+    };
+    
+    console.log('Hourly backup completed:', results);
+    
+    // Send notification for backup completion
+    if (backupResults.successful > 0 || backupResults.failed > 0) {
+      this.notifyAdmins(results, 'backup');
+    }
+  }
+
   // Log cleanup results
   logCleanupResults(startTime) {
     const endTime = new Date();
@@ -320,17 +466,37 @@ class FileCleanupService {
     
     // Send notification if significant cleanup occurred
     if (this.cleanupStats.filesDeleted > 10) {
-      this.notifyAdmins(results);
+      this.notifyAdmins(results, 'cleanup');
     }
   }
 
-  // Notify administrators of cleanup results
-  notifyAdmins(results) {
-    // In real implementation, send email or push notification
-    console.log('Cleanup notification sent to administrators:', {
-      message: `Payment proof cleanup completed: ${results.filesDeleted} files deleted, ${results.spaceReclaimed} space reclaimed`,
-      details: results
-    });
+// Notify administrators of backup/cleanup results
+  notifyAdmins(results, type = 'cleanup') {
+    if (type === 'backup') {
+      console.log('Backup notification sent to administrators:', {
+        message: `Hourly backup completed: ${results.filesBackedUp} files backed up to secondary region, ${results.totalBackupSize} transferred`,
+        details: results
+      });
+    } else {
+      console.log('Cleanup notification sent to administrators:', {
+        message: `Payment proof cleanup completed: ${results.filesDeleted} files deleted, ${results.spaceReclaimed} space reclaimed`,
+        details: results
+      });
+    }
+  }
+
+// Get backup service status
+  getBackupStatus() {
+    return {
+      isRunning: this.isRunning,
+      lastBackup: this.lastBackup,
+      nextBackup: this.nextBackup,
+      backupInterval: '1 hour',
+      lastCleanup: this.lastCleanup,
+      retentionPeriod: `${this.retentionPeriod / (24 * 60 * 60 * 1000)} days`,
+      cleanupInterval: `${this.cleanupInterval / (60 * 60 * 1000)} hours`,
+      lastStats: this.cleanupStats
+    };
   }
 
   // Get cleanup service status

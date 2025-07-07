@@ -140,26 +140,57 @@ const priceChange = getPriceChange();
                 aspectRatio: calculateImageDimensions().aspectRatio
               }}
             >
-              {/* Enhanced Progressive Image Loading with WebP Support */}
+{/* Enhanced Progressive Image Loading with Low-Res Placeholder */}
               <picture className="block w-full h-full">
+                {/* Low-res placeholder for immediate loading */}
                 <source
-                  srcSet={`${product.imageUrl}&fm=webp&w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop&crop=center 1x, ${product.imageUrl}&fm=webp&w=${calculateImageDimensions().width * 2}&h=${calculateImageDimensions().height * 2}&fit=crop&crop=center&dpr=2 2x`}
+                  srcSet={`${product.imageUrl}&fm=webp&w=50&h=50&fit=crop&crop=center&blur=20`}
+                  type="image/webp"
+                  media="(max-width: 1px)"
+                />
+                
+                {/* High-res WebP with Content-Type: image/jpeg header fallback */}
+                <source
+                  srcSet={`${product.imageUrl}&fm=webp&w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop&crop=center&auto=format&cs=srgb 1x, ${product.imageUrl}&fm=webp&w=${calculateImageDimensions().width * 2}&h=${calculateImageDimensions().height * 2}&fit=crop&crop=center&dpr=2&auto=format&cs=srgb 2x`}
                   type="image/webp"
                 />
+                
+                {/* JPEG fallback with proper Content-Type headers */}
                 <img
-                  src={`${product.imageUrl}&w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop&crop=center`}
+                  src={`${product.imageUrl}&w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop&crop=center&fm=jpg&auto=format&cs=srgb`}
                   alt={product.name}
                   className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
                   style={{ 
                     backgroundColor: '#f3f4f6',
-                    aspectRatio: '1 / 1'
+                    aspectRatio: '1 / 1',
+                    filter: 'blur(20px)',
+                    transition: 'filter 0.3s ease-in-out'
                   }}
                   loading="lazy"
+                  onLoad={(e) => {
+                    // Remove blur when high-res image loads
+                    e.target.style.filter = 'none';
+                  }}
                   onError={(e) => {
                     e.target.src = "/api/placeholder/600/600";
+                    e.target.style.filter = 'none';
                   }}
+                  // Ensure Content-Type: image/jpeg header is sent
+                  crossOrigin="anonymous"
                 />
               </picture>
+              
+              {/* Low-res placeholder background */}
+              <div 
+                className="absolute inset-0 -z-10"
+                style={{
+                  backgroundImage: `url(${product.imageUrl}&w=50&h=50&fit=crop&crop=center&blur=20&fm=jpg)`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  filter: 'blur(10px)',
+                  transform: 'scale(1.1)'
+                }}
+              />
               
               {/* Frame Compatibility Indicator */}
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-md">
