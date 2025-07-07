@@ -274,10 +274,23 @@ return (
                 </div>
               )}
               
-              {order.paymentProof && (
-                <div className="flex items-center space-x-3">
-                  <ApperIcon name="FileText" size={16} className="text-gray-500" />
-                  <span className="text-gray-900">Payment proof uploaded</span>
+{order.paymentProof && (
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3">
+                    <ApperIcon name="FileText" size={16} className="text-gray-500" />
+                    <span className="text-gray-900">Payment proof uploaded</span>
+                  </div>
+                  <div className="relative">
+                    <img
+                      src={order.paymentProofThumbnailUrl || order.paymentProofUrl || order.paymentProof}
+                      alt="Payment proof thumbnail"
+                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
+                      onClick={() => window.open(order.paymentProofUrl || order.paymentProof, '_blank')}
+                      onError={(e) => {
+                        e.target.src = '/placeholder-image.jpg';
+                      }}
+                    />
+                  </div>
                 </div>
               )}
             </div>

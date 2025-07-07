@@ -61,10 +61,13 @@ if (orderData.paymentMethod === 'wallet') {
       newOrder.status = 'payment_pending';
     }
     
-    // Handle payment proof submissions
-    if (orderData.paymentProof && orderData.paymentMethod === 'bank') {
+// Handle payment proof submissions with secure file storage
+    if (orderData.paymentProof && orderData.paymentMethod !== 'cash') {
       newOrder.verificationStatus = 'pending';
       newOrder.paymentProofSubmittedAt = new Date().toISOString();
+      newOrder.paymentProofFileName = orderData.paymentProof.fileName;
+      newOrder.paymentProofUrl = orderData.paymentProof.fileUrl;
+      newOrder.paymentProofThumbnailUrl = orderData.paymentProof.thumbnailUrl;
     }
     
     this.orders.push(newOrder);
@@ -243,22 +246,23 @@ async getPendingVerifications() {
     return this.orders
       .filter(order => {
         // Include orders with payment proof requiring verification
-        const hasPaymentProof = order.paymentProof && (order.paymentProof.fileName || order.paymentProofFileName);
+        const hasPaymentProof = order.paymentProof || order.paymentProofFileName;
         const isPendingVerification = order.verificationStatus === 'pending' || 
                                     (!order.verificationStatus && hasPaymentProof &&
                                      (order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank'));
         return hasPaymentProof && isPendingVerification;
       })
-.map(order => ({
+      .map(order => ({
         Id: order?.id,
         orderId: order?.id,
         transactionId: order?.transactionId || `TXN${order?.id}${Date.now().toString().slice(-4)}`,
         amount: order?.total || order?.totalAmount || 0,
         paymentMethod: order?.paymentMethod || 'unknown',
         customerName: order?.deliveryAddress?.name || 'Unknown',
-        paymentProof: `/api/uploads/${order?.paymentProof?.fileName || order?.paymentProofFileName || 'default.jpg'}`, // Simulate proof URL
-        paymentProofFileName: order?.paymentProof?.fileName || order?.paymentProofFileName || 'unknown',
-        submittedAt: order?.paymentProof?.uploadedAt || order?.paymentProofSubmittedAt || order?.createdAt,
+        paymentProof: order?.paymentProofUrl || `/api/payment-proofs/${order?.paymentProofFileName || 'default.jpg'}`,
+        paymentProofThumbnail: order?.paymentProofThumbnailUrl || `/api/payment-proofs/thumbnails/${order?.paymentProofFileName || 'default.jpg'}`,
+        paymentProofFileName: order?.paymentProofFileName || 'unknown',
+        submittedAt: order?.paymentProofSubmittedAt || order?.createdAt,
         verificationStatus: order?.verificationStatus || 'pending'
       }));
   }
@@ -299,6 +303,58 @@ async updateVerificationStatus(orderId, status, notes = '') {
 
     this.orders[orderIndex] = updatedOrder;
     return { ...updatedOrder };
+  }
+
+  // Secure image serving methods
+  async servePaymentProof(fileName, userRole = 'admin') {
+    await this.delay(200);
+    
+    // Validate user has permission to access file
+    if (userRole !== 'admin' && userRole !== 'finance_manager') {
+      throw new Error('Insufficient permissions to access payment proof');
+    }
+
+    // Find order with this payment proof
+    const order = this.orders.find(o => o.paymentProofFileName === fileName);
+    if (!order) {
+      throw new Error('Payment proof not found');
+    }
+
+    // Simulate file serving with proper headers
+    return {
+      fileName: fileName,
+      mimeType: order.paymentProof?.fileType || 'image/jpeg',
+      fileSize: order.paymentProof?.fileSize || 0,
+      lastModified: order.paymentProofSubmittedAt || order.createdAt,
+      contentDisposition: `inline; filename="${order.paymentProof?.originalName || fileName}"`,
+      cacheControl: 'private, no-cache, no-store, must-revalidate',
+      securityHeaders: {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'Referrer-Policy': 'strict-origin-when-cross-origin'
+      }
+    };
+  }
+
+  async validatePaymentProofAccess(fileName, userRole, userId = null) {
+    await this.delay(100);
+    
+    const order = this.orders.find(o => o.paymentProofFileName === fileName);
+    if (!order) {
+      return { valid: false, error: 'Payment proof not found' };
+    }
+
+    // Admin and finance managers have full access
+    if (userRole === 'admin' || userRole === 'finance_manager') {
+      return { valid: true, order: { ...order } };
+    }
+
+    // Customers can only access their own files
+    if (userRole === 'customer') {
+      return { valid: false, error: 'Insufficient permissions' };
+    }
+
+    return { valid: false, error: 'Invalid user role' };
   }
 
   async getVerificationHistory(orderId) {

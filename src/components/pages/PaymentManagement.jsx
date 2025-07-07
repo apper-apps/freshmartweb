@@ -946,18 +946,47 @@ const getFilteredTransactions = () => {
                       </div>
                     </div>
 
-                    {verification.paymentProof && (
+{verification.paymentProof && (
                       <div className="mb-4">
                         <p className="text-sm font-medium text-gray-700 mb-2">Payment Proof:</p>
-                        <div className="relative">
+                        <div className="relative group">
                           <img
-                            src={verification.paymentProof}
-                            alt="Payment proof"
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                            src={verification.paymentProofThumbnail || verification.paymentProof}
+                            alt="Payment proof thumbnail"
+                            className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => {
+                              // Create modal for fullscreen view
+                              const modal = document.createElement('div');
+                              modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                              modal.innerHTML = `
+                                <div class="relative max-w-4xl max-h-full">
+                                  <img src="${verification.paymentProof}" alt="Payment proof fullscreen" class="max-w-full max-h-full rounded-lg" />
+                                  <button class="absolute top-4 right-4 bg-white/20 hover:bg-white/40 text-white p-2 rounded-lg transition-colors">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                    </svg>
+                                  </button>
+                                </div>
+                              `;
+                              modal.onclick = (e) => {
+                                if (e.target === modal || e.target.closest('button')) {
+                                  document.body.removeChild(modal);
+                                }
+                              };
+                              document.body.appendChild(modal);
+                            }}
+                            onError={(e) => {
+                              e.target.src = '/placeholder-image.jpg';
+                            }}
                           />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-2 rounded-lg">
+                              <ApperIcon name="ZoomIn" size={24} className="text-white" />
+                            </div>
+                          </div>
                           <button
                             onClick={() => window.open(verification.paymentProof, '_blank')}
-                            className="absolute top-2 right-2 bg-white/80 hover:bg-white p-2 rounded-lg transition-colors"
+                            className="absolute top-2 right-2 bg-white/80 hover:bg-white p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                           >
                             <ApperIcon name="ExternalLink" size={16} />
                           </button>
