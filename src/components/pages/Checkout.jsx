@@ -10,11 +10,12 @@ import Loading from "@/components/ui/Loading";
 import Account from "@/components/pages/Account";
 import PaymentMethod from "@/components/molecules/PaymentMethod";
 import { orderService } from "@/services/api/orderService";
-import { productService } from "@/services/api/productService";
+import productService from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
+
 function Checkout() {
   const navigate = useNavigate()
-const { cart, clearCart } = useCart()
+  const { cart, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([])
