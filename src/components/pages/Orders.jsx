@@ -233,7 +233,12 @@ const Orders = () => {
                                               this.parentElement.classList.remove('bg-gray-100');
                                               this.style.opacity = '1';
                                             "
-                                            style="opacity: 0; transition: opacity 0.3s ease;"
+style="opacity: 0; transition: opacity 0.3s ease;"
+                                            onload="
+                                              this.parentElement.querySelector('.animate-spin').style.display = 'none';
+                                              this.parentElement.classList.remove('bg-gray-100');
+                                              this.style.opacity = '1';
+                                            "
                                             onerror="
                                               let retryCount = parseInt(this.dataset.retryCount || '0');
                                               if (retryCount < 3) {
@@ -248,8 +253,13 @@ const Orders = () => {
                                               }
                                             "
                                           />
-                                        </div>
                                         <div class="absolute top-4 right-4 flex space-x-2">
+                                          <button class="download-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors shadow-lg flex items-center space-x-2">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path>
+                                            </svg>
+                                            <span>Download</span>
+                                          </button>
                                           <button class="verify-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors shadow-lg flex items-center space-x-2">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -263,7 +273,7 @@ const Orders = () => {
                                           </button>
                                         </div>
                                       </div>
-                                      <div class="p-6 bg-gray-50 border-t">
+<div class="p-6 bg-gray-50 border-t">
                                         <div class="text-center">
                                           <h3 class="text-lg font-semibold text-gray-900 mb-4">Payment Proof - Order #${order.id}</h3>
                                           <div class="grid grid-cols-2 gap-6 text-sm text-gray-600">
@@ -281,9 +291,10 @@ const Orders = () => {
                                     </div>
                                   `;
                                   
-                                  // Event handlers
+// Event handlers
                                   const closeBtn = modal.querySelector('.close-btn');
                                   const verifyBtn = modal.querySelector('.verify-btn');
+                                  const downloadBtn = modal.querySelector('.download-btn');
                                   
                                   const closeModal = () => {
                                     document.body.removeChild(modal);
@@ -296,6 +307,26 @@ const Orders = () => {
                                     alert('Verification feature - Admin access required');
                                   };
                                   
+                                  downloadBtn.onclick = async () => {
+                                    try {
+                                      const downloadUrl = orderService.getPaymentProofUrl(order);
+                                      if (!downloadUrl.startsWith('data:image/svg+xml')) {
+                                        // Create download link
+                                        const link = document.createElement('a');
+                                        link.href = downloadUrl;
+                                        link.download = `payment_proof_order_${order.id}.jpg`;
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        toast.success('Payment proof download started');
+                                      } else {
+                                        toast.error('Payment proof not available for download');
+                                      }
+                                    } catch (error) {
+                                      console.error('Download failed:', error);
+                                      toast.error('Failed to download payment proof');
+                                    }
+                                  };
                                   modal.onclick = (e) => {
                                     if (e.target === modal) {
                                       closeModal();
@@ -370,8 +401,8 @@ const Orders = () => {
                 )}
               </div>
             </div>
-          </div>
-))}
+</div>
+        ))}
       </div>
     </div>
   );
