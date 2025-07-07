@@ -951,45 +951,62 @@ const getFilteredTransactions = () => {
                         <p className="text-sm font-medium text-gray-700 mb-2">Payment Proof:</p>
                         <div className="relative group">
                           <img
-                            src={verification.paymentProofThumbnail || verification.paymentProof}
+                            src={verification.paymentProofThumbnail || verification.paymentProof || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg=='}
                             alt="Payment proof thumbnail"
                             className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
                             onClick={() => {
                               // Create modal for fullscreen view
-                              const fullImageUrl = verification.paymentProof;
+                              const fullImageUrl = verification.paymentProof || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Ob3QgQXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==';
                               const modal = document.createElement('div');
                               modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                               modal.innerHTML = `
-                                <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden">
+                                <div class="relative max-w-4xl max-h-full bg-white rounded-lg overflow-hidden shadow-2xl">
                                   <div class="relative">
-                                    <img src="${fullImageUrl}" alt="Payment proof fullscreen" class="max-w-full max-h-[80vh] mx-auto block" />
-                                    <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-2 rounded-lg transition-colors z-10">
+                                    <img src="${fullImageUrl}" alt="Payment proof fullscreen" class="max-w-full max-h-[80vh] mx-auto block" style="object-fit: contain;" />
+                                    <button class="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white p-3 rounded-lg transition-colors z-10 shadow-lg">
                                       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                                       </svg>
                                     </button>
                                   </div>
-                                  <div class="p-4 bg-gray-50 text-center">
-                                    <p class="text-sm text-gray-600">Payment Proof - Order #${verification.orderId}</p>
-                                    <p class="text-xs text-gray-500 mt-1">File: ${verification.paymentProofFileName || 'Unknown'}</p>
+                                  <div class="p-6 bg-gray-50 border-t">
+                                    <div class="text-center">
+                                      <h3 class="text-lg font-semibold text-gray-900 mb-2">Payment Proof - Order #${verification.orderId}</h3>
+                                      <div class="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                                        <div>
+                                          <span class="font-medium">Transaction ID:</span>
+                                          <p class="font-mono">${verification.transactionId || 'N/A'}</p>
+                                        </div>
+                                        <div>
+                                          <span class="font-medium">Amount:</span>
+                                          <p class="font-semibold">Rs. ${verification.amount?.toLocaleString() || '0'}</p>
+                                        </div>
+                                        <div>
+                                          <span class="font-medium">Payment Method:</span>
+                                          <p class="capitalize">${verification.paymentMethod || 'Unknown'}</p>
+                                        </div>
+                                        <div>
+                                          <span class="font-medium">File Name:</span>
+                                          <p class="truncate">${verification.paymentProofFileName || 'Unknown'}</p>
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               `;
                               modal.onclick = (e) => {
                                 if (e.target === modal || e.target.closest('button')) {
                                   document.body.removeChild(modal);
+                                  document.body.style.overflow = '';
                                 }
                               };
                               // Prevent scroll on body when modal is open
                               document.body.style.overflow = 'hidden';
-                              modal.addEventListener('click', () => {
-                                document.body.style.overflow = '';
-                              });
                               document.body.appendChild(modal);
                             }}
                             onError={(e) => {
                               console.warn('Failed to load payment proof image:', e.target.src);
-                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5JbWFnZSBub3QgZm91bmQ8L3RleHQ+Cjwvc3ZnPg==';
+                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
                               e.target.alt = 'Payment proof image not available';
                             }}
                           />
@@ -1001,9 +1018,10 @@ const getFilteredTransactions = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              window.open(verification.paymentProof, '_blank');
+                              const imageUrl = verification.paymentProof || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+                              window.open(imageUrl, '_blank');
                             }}
-                            className="absolute top-2 right-2 bg-white/80 hover:bg-white p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                            className="absolute top-2 right-2 bg-white/80 hover:bg-white p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100 shadow-md"
                           >
                             <ApperIcon name="ExternalLink" size={16} />
                           </button>

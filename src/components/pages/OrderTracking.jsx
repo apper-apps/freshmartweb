@@ -280,14 +280,24 @@ return (
                     <ApperIcon name="FileText" size={16} className="text-gray-500" />
                     <span className="text-gray-900">Payment proof uploaded</span>
                   </div>
-                  <div className="relative">
+<div className="relative">
                     <img
-                      src={order.paymentProofThumbnailUrl || order.paymentProofUrl || order.paymentProof}
+                      src={(() => {
+                        // Import orderService for consistent URL generation
+                        const { orderService } = require('@/services/api/orderService');
+                        return orderService.getPaymentProofThumbnailUrl(order);
+                      })()}
                       alt="Payment proof thumbnail"
                       className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
-                      onClick={() => window.open(order.paymentProofUrl || order.paymentProof, '_blank')}
+                      onClick={() => {
+                        const { orderService } = require('@/services/api/orderService');
+                        const fullImageUrl = orderService.getPaymentProofUrl(order);
+                        window.open(fullImageUrl, '_blank');
+                      }}
                       onError={(e) => {
-                        e.target.src = '/placeholder-image.jpg';
+                        console.warn('Failed to load payment proof image:', e.target.src);
+                        e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
+                        e.target.alt = 'Payment proof image not available';
                       }}
                     />
                   </div>
