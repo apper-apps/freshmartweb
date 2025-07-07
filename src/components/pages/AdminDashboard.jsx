@@ -9,7 +9,7 @@ import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
-import productService from "@/services/api/productService";
+import productService, { getAllProducts } from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
 
 const AdminDashboard = () => {
@@ -33,17 +33,20 @@ const AdminDashboard = () => {
 const [revenueBreakdown, setRevenueBreakdown] = useState([]);
   const navigate = useNavigate();
 
-  const loadDashboardData = async () => {
+const loadDashboardData = async () => {
     setLoading(true);
-try {
+    setError(null);
+    
+    try {
       // Load products and check for low stock
       const products = await productService.getAll();
       const orders = await orderService.getAll();
       
       // Calculate low stock products (stock < 10)
-const lowStock = (products || []).filter(product => (product?.stock || 0) < 10);
+      const lowStock = (products || []).filter(product => (product?.stock || 0) < 10);
       setLowStockProducts(lowStock || []);
-// Get today's orders
+      
+      // Get today's orders
       const today = new Date();
       const todayOrdersData = (orders || []).filter(order => {
         if (!order?.createdAt) return false;
@@ -51,14 +54,12 @@ const lowStock = (products || []).filter(product => (product?.stock || 0) < 10);
         return orderDate.toDateString() === today.toDateString();
       });
       setTodayOrders(todayOrdersData || []);
-
-// Calculate today's revenue with safe defaults
-      const todayRevenueAmount = (todayOrdersData || []).reduce((sum, order) => {
-        return sum + (order?.totalAmount || order?.total || 0);
-      }, 0);
+      
+      // Calculate today's revenue
+      const todayRevenueAmount = todayOrdersData.reduce((sum, order) => sum + (order?.total || 0), 0);
       setTodayRevenue(todayRevenueAmount || 0);
 
-// Get wallet data with safe defaults
+      // Get wallet data with safe defaults
       const walletBalance = await paymentService.getWalletBalance();
       const walletTransactionsData = await paymentService.getWalletTransactions();
       setWalletTransactions(walletTransactionsData || []);
@@ -66,16 +67,17 @@ const lowStock = (products || []).filter(product => (product?.stock || 0) < 10);
       // Get monthly revenue with safe defaults
       const monthlyRevenue = await orderService.getMonthlyRevenue();
       const pendingVerifications = await orderService.getPendingVerifications();
-const revenueByMethodData = await orderService.getRevenueByPaymentMethod();
+      const revenueByMethodData = await orderService.getRevenueByPaymentMethod();
       setRevenueByMethod(revenueByMethodData || {});
-// Calculate revenue breakdown with safe defaults
+      
+      // Calculate revenue breakdown with safe defaults
       const breakdown = Object.entries(revenueByMethodData || {}).map(([method, amount]) => ({
         method,
         amount: amount || 0
       }));
       setRevenueBreakdown(breakdown || []);
 
-// Sort orders by date (newest first)
+      // Sort orders by date (newest first)
       const sortedOrdersData = [...(orders || [])].sort((a, b) => {
         const dateA = new Date(a?.createdAt || 0);
         const dateB = new Date(b?.createdAt || 0);
@@ -92,7 +94,7 @@ const revenueByMethodData = await orderService.getRevenueByPaymentMethod();
         todayRevenue: todayRevenueAmount || 0
       });
 
-} catch (error) {
+    } catch (error) {
       console.error('Error loading dashboard data:', error);
       setError(error?.message || 'Failed to load dashboard data. Please try again.');
     } finally {
