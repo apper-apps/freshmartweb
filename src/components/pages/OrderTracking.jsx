@@ -7,6 +7,113 @@ import Loading from '@/components/ui/Loading';
 import Error from '@/components/ui/Error';
 import { orderService } from '@/services/api/orderService';
 
+// Payment Proof Image Component with enhanced error handling and retry functionality
+const PaymentProofImage = ({ order }) => {
+  const [imageState, setImageState] = useState({
+    loading: true,
+    error: false,
+    retryCount: 0,
+    src: orderService.getPaymentProofThumbnailUrl(order)
+  });
+
+  const handleImageLoad = () => {
+    setImageState(prev => ({
+      ...prev,
+      loading: false,
+      error: false
+    }));
+  };
+
+  const handleImageError = (e) => {
+    console.warn('Failed to load payment proof image:', e.target.src);
+    
+    // Don't retry if already a placeholder or after 2 attempts
+    if (e.target.src.startsWith('data:image/svg+xml') || imageState.retryCount >= 2) {
+      setImageState(prev => ({
+        ...prev,
+        loading: false,
+        error: true
+      }));
+      return;
+    }
+
+    // Try alternative URL generation or increment retry
+    setImageState(prev => ({
+      ...prev,
+      retryCount: prev.retryCount + 1,
+      loading: false,
+      error: true
+    }));
+  };
+
+  const handleRetry = () => {
+    setImageState(prev => ({
+      ...prev,
+      loading: true,
+      error: false,
+      src: orderService.getPaymentProofUrl(order) // Try full URL instead of thumbnail
+    }));
+  };
+
+  const handleViewFullImage = () => {
+    const fullImageUrl = orderService.getPaymentProofUrl(order);
+    if (fullImageUrl && !fullImageUrl.startsWith('data:image/svg+xml')) {
+      window.open(fullImageUrl, '_blank');
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center space-x-3">
+        <ApperIcon name="FileText" size={16} className="text-gray-500" />
+        <span className="text-gray-900">Payment proof uploaded</span>
+      </div>
+      
+      <div className="relative group">
+        {imageState.loading && (
+          <div className="w-20 h-20 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+            <div className="animate-spin">
+              <ApperIcon name="Loader2" size={16} className="text-gray-400" />
+            </div>
+          </div>
+        )}
+        
+        {imageState.error && !imageState.loading ? (
+          <div className="w-20 h-20 bg-gray-50 rounded-lg border border-gray-200 flex flex-col items-center justify-center space-y-1">
+            <ApperIcon name="ImageOff" size={16} className="text-gray-400" />
+            <button
+              onClick={handleRetry}
+              className="text-xs text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : (
+          <img
+            src={imageState.src}
+            alt="Payment proof thumbnail"
+            className={`w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-all duration-200 ${
+              imageState.loading ? 'opacity-0 absolute' : 'opacity-100'
+            }`}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            onClick={handleViewFullImage}
+          />
+        )}
+        
+        {!imageState.loading && !imageState.error && (
+          <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <ApperIcon name="Expand" size={16} className="text-white" />
+          </div>
+        )}
+      </div>
+      
+      {imageState.error && imageState.retryCount >= 2 && (
+        <p className="text-xs text-gray-500">Payment proof image not available</p>
+      )}
+    </div>
+  );
+};
 const OrderTracking = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
@@ -275,31 +382,7 @@ return (
               )}
               
 {order.paymentProof && (
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <ApperIcon name="FileText" size={16} className="text-gray-500" />
-                    <span className="text-gray-900">Payment proof uploaded</span>
-                  </div>
-<div className="relative">
-<img
-                      src={orderService.getPaymentProofThumbnailUrl(order)}
-                      alt="Payment proof thumbnail"
-                      className="w-20 h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
-                      onClick={() => {
-                        const fullImageUrl = orderService.getPaymentProofUrl(order);
-                        window.open(fullImageUrl, '_blank');
-                      }}
-onError={(e) => {
-                        console.warn('Failed to load payment proof image:', e.target.src);
-                        // Only replace with placeholder if it's not already a placeholder
-                        if (!e.target.src.startsWith('data:image/svg+xml')) {
-                          e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5VbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=';
-                          e.target.alt = 'Payment proof image not available';
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
+                <PaymentProofImage order={order} />
               )}
             </div>
           </div>
