@@ -1,16 +1,16 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import { useCart } from "@/hooks/useCart";
-import ApperIcon from "@/components/ApperIcon";
-import Button from "@/components/atoms/Button";
-import Input from "@/components/atoms/Input";
-import Error from "@/components/ui/Error";
-import Loading from "@/components/ui/Loading";
-import Account from "@/components/pages/Account";
-import PaymentMethod from "@/components/molecules/PaymentMethod";
-import { orderService } from "@/services/api/orderService";
-import productService from "@/services/api/productService";
+import React, { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { toast } from 'react-toastify'
+import useCart from '@/hooks/useCart'
+import ApperIcon from '@/components/ApperIcon'
+import Button from '@/components/atoms/Button'
+import Input from '@/components/atoms/Input'
+import Error from '@/components/ui/Error'
+import Loading from '@/components/ui/Loading'
+import Account from '@/components/pages/Account'
+import PaymentMethod from '@/components/molecules/PaymentMethod'
+import { orderService } from '@/services/api/orderService'
+import productService from '@/services/api/productService'
 import { paymentService } from "@/services/api/paymentService";
 
 function Checkout() {
