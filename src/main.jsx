@@ -1,8 +1,8 @@
 import '@/index.css'
-import React, { useEffect, useState } from 'react'
-import ReactDOM from 'react-dom/client'
-import App from '@/App'
-import Error from '@/components/ui/Error'
+import React, { useEffect, useState } from "react";
+import ReactDOM from "react-dom/client";
+import App from "@/App";
+import Error from "@/components/ui/Error";
 
 // Performance Monitor
 const performanceMonitor = {
@@ -41,11 +41,10 @@ class BackgroundSDKLoader {
       if (import.meta.env.DEV) {
         console.log('SDK initialized successfully');
       }
-    }
+}
   }
 }
-
-// Fast Error Boundary
+// Global error boundary component with proper hook usage
 function FastErrorBoundary({ children, fallback }) {
   const [hasError, setHasError] = React.useState(false);
   const [error, setError] = React.useState(null);
@@ -56,7 +55,7 @@ function FastErrorBoundary({ children, fallback }) {
       console.error('Global error caught:', event.error);
       setHasError(true);
       setError(event.error);
-      setErrorInfo(event.error?.stack || 'No stack trace available');
+      setErrorInfo({ componentStack: event.error?.stack || 'Unknown' });
     };
 
     const handleUnhandledRejection = (event) => {
@@ -188,9 +187,5 @@ async function initializeApp() {
     }
   }
 }
-
-// Start the application
-initializeApp();
-
 // Start the application
 initializeApp();

@@ -35,7 +35,7 @@ function LazyErrorBoundary({ children, fallback }) {
   const [hasError, setHasError] = useState(false)
   const [error, setError] = useState(null)
 
-useEffect(() => {
+  useEffect(() => {
     const handleError = (event) => {
       console.error('Lazy component error:', event.error)
       setHasError(true)
