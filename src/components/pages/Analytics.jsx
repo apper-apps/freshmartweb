@@ -9,23 +9,24 @@ import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
-import productService from "@/services/api/productService";
+import { getAllProducts } from "@/services/api/productService";
 
-const Analytics = () => {
+function Analytics() {
   const [data, setData] = useState({
     orders: [],
     products: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [dateRange, setDateRange] = useState('30'); // days
-  const [selectedMetric, setSelectedMetric] = useState('revenue');
-const metrics = [
-    { key: 'revenue', label: 'Revenue', icon: 'DollarSign', color: 'green' },
-    { key: 'orders', label: 'Orders', icon: 'ShoppingCart', color: 'blue' },
-    { key: 'products', label: 'Products Sold', icon: 'Package', color: 'purple' },
-    { key: 'customers', label: 'Customers', icon: 'Users', color: 'orange' },
-    { key: 'profit', label: 'Profit Margin', icon: 'TrendingUp', color: 'emerald' },
+const [dateRange, setDateRange] = useState('30'); // days
+  
+  const metrics = [
+    { key: 'revenue', label: 'Total Revenue', icon: 'DollarSign', color: 'green' },
+    { key: 'orders', label: 'Total Orders', icon: 'ShoppingCart', color: 'blue' },
+    { key: 'customers', label: 'Customers', icon: 'Users', color: 'purple' },
+    { key: 'averageOrderValue', label: 'Avg Order Value', icon: 'TrendingUp', color: 'orange' },
+    { key: 'products', label: 'Products Sold', icon: 'Package', color: 'indigo' },
+    { key: 'profit', label: 'Profit Margin', icon: 'PieChart', color: 'emerald' },
     { key: 'roi', label: 'ROI', icon: 'Target', color: 'indigo' }
   ];
 
