@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import Chart from 'react-apexcharts';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import Loading from '@/components/ui/Loading';
-import Error from '@/components/ui/Error';
-import Badge from '@/components/atoms/Badge';
-import { orderService } from '@/services/api/orderService';
-import { productService } from '@/services/api/productService';
+import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import { endOfDay, format, startOfDay, subDays } from "date-fns";
+import Chart from "react-apexcharts";
+import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import Orders from "@/components/pages/Orders";
+import { orderService } from "@/services/api/orderService";
+import productService from "@/services/api/productService";
 
 const Analytics = () => {
   const [data, setData] = useState({
@@ -19,7 +20,6 @@ const Analytics = () => {
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState('30'); // days
   const [selectedMetric, setSelectedMetric] = useState('revenue');
-
 const metrics = [
     { key: 'revenue', label: 'Revenue', icon: 'DollarSign', color: 'green' },
     { key: 'orders', label: 'Orders', icon: 'ShoppingCart', color: 'blue' },
