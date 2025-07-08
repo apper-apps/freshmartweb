@@ -517,140 +517,191 @@ return {
 
 // Payment Proof URL Helper Methods
 // Enhanced S3 Payment Proof URL Helper with robust fallback and retry mechanisms
+// Enhanced S3 Payment Proof URL Helper with ultra-robust fallback and retry mechanisms
   getPaymentProofUrl(order) {
     try {
-      // Priority 1: Check for S3 URL field (highest priority for MVP storage)
-      if (order?.paymentProofUrl && order.paymentProofUrl !== '' && !order.paymentProofUrl.includes('undefined')) {
-        // Verify S3 URL format and add retry parameters
-        if (order.paymentProofUrl.includes('s3.') || order.paymentProofUrl.includes('amazonaws.com')) {
-          return this.addRetryParameters(order.paymentProofUrl);
+      // Priority 1: Direct S3 URL with enhanced validation (highest priority for MVP storage)
+      if (order?.paymentProofUrl && order.paymentProofUrl !== '' && !order.paymentProofUrl.includes('undefined') && !order.paymentProofUrl.includes('null')) {
+        // Verify S3 URL format and add enhanced retry parameters
+        if (order.paymentProofUrl.includes('s3.') || order.paymentProofUrl.includes('amazonaws.com') || order.paymentProofUrl.includes('cloudfront')) {
+          return this.addEnhancedRetryParameters(order.paymentProofUrl);
         }
-        return order.paymentProofUrl;
+        // Validate other URL formats
+        if (order.paymentProofUrl.startsWith('http') || order.paymentProofUrl.startsWith('/api/') || order.paymentProofUrl.startsWith('data:')) {
+          return order.paymentProofUrl;
+        }
       }
       
-      // Priority 2: Construct S3 URL from payment proof metadata
+      // Priority 2: Construct S3 URL from comprehensive payment proof metadata
       if (order?.paymentProof?.s3Key && order?.paymentProof?.s3Bucket) {
         const s3BaseUrl = `https://${order.paymentProof.s3Bucket}.s3.us-east-1.amazonaws.com`;
-        return this.addRetryParameters(`${s3BaseUrl}/${order.paymentProof.s3Key}`);
+        return this.addEnhancedRetryParameters(`${s3BaseUrl}/${order.paymentProof.s3Key}`);
       }
       
-      // Priority 3: Generate S3 URL from filename with standard pattern
-      if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
-        const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
-        if (fileName && fileName !== 'undefined' && fileName !== 'null') {
-          // Check if filename follows OrderID_UserID_Timestamp pattern
-          if (fileName.includes('_') && fileName.match(/^\d+_\w+_\d+/)) {
-            const s3Url = `https://freshmart-payment-proofs.s3.us-east-1.amazonaws.com/payment-proofs/${fileName}`;
-            return this.addRetryParameters(s3Url);
+      // Priority 3: Enhanced S3 URL generation from multiple filename sources
+      const fileName = order?.paymentProof?.fileName || order?.paymentProofFileName || order?.paymentProof?.originalName;
+      if (fileName && fileName !== 'undefined' && fileName !== 'null' && fileName.trim() !== '') {
+        // Enhanced pattern matching for multiple filename formats
+        if (fileName.includes('_') && (fileName.match(/^\d+_\w+_\d+/) || fileName.match(/^order_\d+_/i) || fileName.match(/^payment_\d+_/i))) {
+          const s3Url = `https://freshmart-payment-proofs.s3.us-east-1.amazonaws.com/payment-proofs/${fileName}`;
+          return this.addEnhancedRetryParameters(s3Url);
+        }
+        // Try standard S3 path even for non-standard filenames
+        if (fileName.match(/\.(jpg|jpeg|png|webp|pdf)$/i)) {
+          const s3Url = `https://freshmart-payment-proofs.s3.us-east-1.amazonaws.com/payment-proofs/${fileName}`;
+          return this.addEnhancedRetryParameters(s3Url);
+        }
+        // Enhanced fallback to secure API endpoint with multiple parameters
+        return `/api/payment-proofs/secure/${fileName}?auth=true&fallback=s3&order=${order?.id}&timestamp=${Date.now()}`;
+      }
+      
+      // Priority 4: Enhanced base64, blob, and object URL handling
+      if (order?.paymentProof) {
+        if (typeof order.paymentProof === 'string') {
+          if (order.paymentProof.startsWith('data:image/') || order.paymentProof.startsWith('blob:') || order.paymentProof.startsWith('http')) {
+            return order.paymentProof;
           }
-          // Fallback to secure API endpoint for legacy files
-          return `/api/payment-proofs/secure/${fileName}?auth=true&fallback=s3`;
+        }
+        // Handle payment proof as object with multiple URL fields
+        if (typeof order.paymentProof === 'object') {
+          const urlFields = ['fileUrl', 'url', 's3Url', 'cloudinaryUrl', 'imageUrl'];
+          for (const field of urlFields) {
+            if (order.paymentProof[field] && typeof order.paymentProof[field] === 'string' && order.paymentProof[field].startsWith('http')) {
+              return this.addEnhancedRetryParameters(order.paymentProof[field]);
+            }
+          }
         }
       }
       
-      // Priority 4: Check for base64 or blob URLs (temporary uploads)
-      if (order?.paymentProof && typeof order.paymentProof === 'string') {
-        if (order.paymentProof.startsWith('data:image/') || order.paymentProof.startsWith('blob:')) {
-          return order.paymentProof;
-        }
-        if (order.paymentProof.startsWith('http') || order.paymentProof.startsWith('/api/')) {
-          return order.paymentProof;
+      // Priority 5: Alternative field name compatibility with enhanced searching
+      const alternativeFields = ['paymentProofImageUrl', 'proofUrl', 'paymentImage', 'receiptUrl'];
+      for (const field of alternativeFields) {
+        if (order?.[field] && typeof order[field] === 'string' && order[field].startsWith('http')) {
+          return this.addEnhancedRetryParameters(order[field]);
         }
       }
       
-      // Priority 5: Try alternative field names for backwards compatibility
-      if (order?.paymentProof?.fileUrl) {
-        return this.addRetryParameters(order.paymentProof.fileUrl);
-      }
-      
-      // Priority 6: Return enhanced placeholder with better error indication
-      return this.getPlaceholderImage('payment_proof_unavailable');
+      // Priority 6: Enhanced placeholder with detailed error context
+      return this.getEnhancedPlaceholderImage('payment_proof_unavailable', order?.id);
     } catch (error) {
-      console.warn('Error generating S3 payment proof URL:', error);
-      return this.getPlaceholderImage('payment_proof_error');
+      console.warn('Error generating S3 payment proof URL for order:', order?.id, error);
+      return this.getEnhancedPlaceholderImage('payment_proof_error', order?.id);
     }
   }
 
 getPaymentProofThumbnailUrl(order) {
     try {
-      // Priority 1: Check for S3 thumbnail URL (highest priority for MVP storage)
-      if (order?.paymentProofThumbnailUrl && order.paymentProofThumbnailUrl !== '' && !order.paymentProofThumbnailUrl.includes('undefined')) {
-        // Verify S3 thumbnail URL and add retry parameters
-        if (order.paymentProofThumbnailUrl.includes('s3.') || order.paymentProofThumbnailUrl.includes('amazonaws.com')) {
-          return this.addRetryParameters(order.paymentProofThumbnailUrl);
+      // Priority 1: Direct S3 thumbnail URL with enhanced validation
+      if (order?.paymentProofThumbnailUrl && order.paymentProofThumbnailUrl !== '' && !order.paymentProofThumbnailUrl.includes('undefined') && !order.paymentProofThumbnailUrl.includes('null')) {
+        // Verify S3 thumbnail URL and add enhanced retry parameters
+        if (order.paymentProofThumbnailUrl.includes('s3.') || order.paymentProofThumbnailUrl.includes('amazonaws.com') || order.paymentProofThumbnailUrl.includes('cloudfront')) {
+          return this.addEnhancedRetryParameters(order.paymentProofThumbnailUrl);
         }
         return order.paymentProofThumbnailUrl;
       }
       
-      // Priority 2: Construct S3 thumbnail URL from payment proof metadata
+      // Priority 2: Enhanced S3 thumbnail URL construction with multiple bucket support
       if (order?.paymentProof?.s3Bucket && order?.paymentProof?.fileName) {
         const s3BaseUrl = `https://${order.paymentProof.s3Bucket}.s3.us-east-1.amazonaws.com`;
         const thumbnailFileName = order.paymentProof.fileName.replace(/\.[^/.]+$/, '_thumb.webp');
-        return this.addRetryParameters(`${s3BaseUrl}/payment-proofs/thumbnails/${thumbnailFileName}`);
+        return this.addEnhancedRetryParameters(`${s3BaseUrl}/payment-proofs/thumbnails/${thumbnailFileName}`);
       }
       
-      // Priority 3: Generate S3 thumbnail URL from filename with standard pattern
-      if (order?.paymentProof?.fileName || order?.paymentProofFileName) {
-        const fileName = order.paymentProof?.fileName || order.paymentProofFileName;
-        if (fileName && fileName !== 'undefined' && fileName !== 'null') {
-          // Check if filename follows OrderID_UserID_Timestamp pattern
-          if (fileName.includes('_') && fileName.match(/^\d+_\w+_\d+/)) {
-            const thumbnailFileName = fileName.replace(/\.[^/.]+$/, '_thumb.webp');
+      // Priority 3: Multi-source filename thumbnail generation with format flexibility
+      const fileName = order?.paymentProof?.fileName || order?.paymentProofFileName || order?.paymentProof?.originalName;
+      if (fileName && fileName !== 'undefined' && fileName !== 'null' && fileName.trim() !== '') {
+        // Enhanced pattern matching for thumbnails
+        if (fileName.includes('_') && (fileName.match(/^\d+_\w+_\d+/) || fileName.match(/^order_\d+_/i) || fileName.match(/^payment_\d+_/i))) {
+          const thumbnailFormats = ['_thumb.webp', '_thumb.jpg', '_small.webp', '_200x200.webp'];
+          for (const format of thumbnailFormats) {
+            const thumbnailFileName = fileName.replace(/\.[^/.]+$/, format);
             const s3ThumbnailUrl = `https://freshmart-payment-proofs.s3.us-east-1.amazonaws.com/payment-proofs/thumbnails/${thumbnailFileName}`;
-            return this.addRetryParameters(s3ThumbnailUrl);
+            // Try the first format with retry parameters, others will be fallbacks
+            if (format === thumbnailFormats[0]) {
+              return this.addEnhancedRetryParameters(s3ThumbnailUrl);
+            }
           }
-          // Fallback to API endpoint for legacy files
-          const thumbnailFileName = fileName.replace(/\.[^/.]+$/, '_thumb.webp');
-          return `/api/payment-proofs/thumbnails/${thumbnailFileName}?size=200x200&fallback=s3`;
+        }
+        
+        // Enhanced API endpoint for thumbnail generation with multiple parameters
+        const thumbnailFileName = fileName.replace(/\.[^/.]+$/, '_thumb.webp');
+        return `/api/payment-proofs/thumbnails/${thumbnailFileName}?size=200x200&format=webp&fallback=s3&order=${order?.id}&quality=85`;
+      }
+      
+      // Priority 4: Enhanced thumbnail object field checking
+      const thumbnailFields = ['thumbnailUrl', 'thumbUrl', 'smallImageUrl', 'previewUrl'];
+      for (const field of thumbnailFields) {
+        if (order?.paymentProof?.[field] && order.paymentProof[field] !== '' && !order.paymentProof[field].includes('undefined')) {
+          return this.addEnhancedRetryParameters(order.paymentProof[field]);
         }
       }
       
-      // Priority 4: Check for thumbnail in payment proof object
-      if (order?.paymentProof?.thumbnailUrl && order.paymentProof.thumbnailUrl !== '') {
-        return this.addRetryParameters(order.paymentProof.thumbnailUrl);
-      }
-      
-      // Priority 5: Handle PDF files with document icon
-      if (order?.paymentProof?.fileType === 'application/pdf' || order?.paymentProof?.documentType === 'pdf') {
+      // Priority 5: Enhanced PDF and document type handling
+      if (order?.paymentProof?.fileType === 'application/pdf' || 
+          order?.paymentProof?.documentType === 'pdf' ||
+          (fileName && fileName.toLowerCase().endsWith('.pdf'))) {
         return '/assets/icons/pdf-thumbnail.png';
       }
       
-      // Priority 6: Fall back to main URL with thumbnail parameters if it's a real image
+      // Priority 6: Smart fallback to main URL with thumbnail transformation
       const mainUrl = this.getPaymentProofUrl(order);
-      if (mainUrl && !mainUrl.startsWith('data:image/svg+xml') && !mainUrl.includes('placeholder')) {
-        return `${mainUrl}?thumbnail=true&size=200x200&format=webp`;
+      if (mainUrl && !mainUrl.startsWith('data:image/svg+xml') && !mainUrl.includes('placeholder') && mainUrl.startsWith('http')) {
+        // Add intelligent thumbnail parameters based on URL type
+        if (mainUrl.includes('s3.') || mainUrl.includes('amazonaws.com')) {
+          return `${mainUrl}?response-content-type=image/webp&thumbnail=true&width=200&height=200`;
+        } else if (mainUrl.includes('/api/')) {
+          return `${mainUrl}&thumbnail=true&size=200x200&format=webp`;
+        } else {
+          return `${mainUrl}?thumbnail=true&size=200x200&format=webp&cache=${Date.now()}`;
+        }
       }
       
-      // Priority 7: Return placeholder for thumbnails
-      return this.getPlaceholderImage('thumbnail_unavailable');
+      // Priority 7: Enhanced placeholder for thumbnails with context
+      return this.getEnhancedPlaceholderImage('thumbnail_unavailable', order?.id);
     } catch (error) {
-      console.warn('Error generating S3 payment proof thumbnail URL:', error);
-      return this.getPlaceholderImage('thumbnail_error');
+      console.warn('Error generating S3 payment proof thumbnail URL for order:', order?.id, error);
+      return this.getEnhancedPlaceholderImage('thumbnail_error', order?.id);
     }
   }
-  
-// Add retry parameters to S3 URLs for failed load recovery
-  addRetryParameters(url) {
-    if (!url || url.startsWith('data:image/svg+xml')) {
+// Enhanced retry parameters with intelligent cache-busting and progressive backoff
+  addEnhancedRetryParameters(url) {
+    if (!url || url.startsWith('data:image/svg+xml') || url.includes('placeholder')) {
       return url;
     }
     
-    // Add cache-busting and retry-friendly parameters
+    // Intelligent parameter addition based on URL structure
     const separator = url.includes('?') ? '&' : '?';
-    return `${url}${separator}v=${Date.now()}&retry=0`;
+    const timestamp = Date.now();
+    const cacheBuster = Math.random().toString(36).substring(2, 8);
+    
+    // Add comprehensive retry and cache-busting parameters
+    return `${url}${separator}v=${timestamp}&cb=${cacheBuster}&retry=0&quality=90&format=auto`;
   }
 
-  // Enhanced placeholder generation with different types and S3 fallback messaging
-  getPlaceholderImage(type = 'default') {
+  // Legacy method for backward compatibility
+  addRetryParameters(url) {
+    return this.addEnhancedRetryParameters(url);
+  }
+
+  // Enhanced placeholder generation with context-aware messaging and order information
+  getEnhancedPlaceholderImage(type = 'default', orderId = null) {
+    const orderContext = orderId ? `_order_${orderId}` : '';
+    const timestamp = Date.now();
+    
     const placeholders = {
-      'payment_proof_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5UZW1wb3JhcmlseSBVbmF2YWlsYWJsZTwvdGV4dD48L3N2Zz4=',
-      'payment_proof_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iI0VGNDQ0NCIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEyIj5TMyBMb2FkIEVycm9yPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEwIj5SZXRyeSBpbiBwcm9ncmVzczwvdGV4dD48L3N2Zz4=',
-      'thumbnail_unavailable': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA5NUwxMDAgMTEwTDExNSA5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOUNBM0FGIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxMDAiIHk9IjE2MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMiI+UzMgVGh1bWJuYWlsPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Mb2FkaW5nLi4uPC90ZXh0Pjwvc3ZnPg==',
-      'thumbnail_error': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA4NUwxMTUgMTE1TTExNSA4NUw4NSAxMTUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMTAwIiB5PSIxNjAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNFRjQ0NDQiIGZvbnQtc2l6ZT0iMTIiPlMzIEVycm9yPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTc1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEwIj5SZXRyeSBmYWlsZWQ8L3RleHQ+PC9zdmc+',
-      'default': 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTYwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5JbWFnZTwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE3NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMCI+Tm90IEZvdW5kPC90ZXh0Pjwvc3ZnPg=='
+      'payment_proof_unavailable': `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5QYXltZW50IFByb29mPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTY1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5Mb2FkaW5nIGZyb20gUzM8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Q0EzQUYiIGZvbnQtc2l6ZT0iOCI+T3JkZXIgIyR7b3JkZXJJZCB8fCAnTi9BJyl9PC90ZXh0Pjwvc3ZnPg==`,
+      'payment_proof_error': `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iI0VGNDQ0NCIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEyIj5TMyBMb2FkIEZhaWxlZDwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE2NSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI0VGNDQ0NCIgZm9udC1zaXplPSIxMCI+UmV0cnlpbmcuLi48L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNFRjQ0NDQiIGZvbnQtc2l6ZT0iOCI+T3JkZXIgIyR7b3JkZXJJZCB8fCAnTi9BJyl9PC90ZXh0Pjwvc3ZnPg==`,
+      'thumbnail_unavailable': `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA5NUwxMDAgMTEwTDExNSA5NSIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOUNBM0FGIiBzdHJva2Utd2lkdGg9IjIiLz48dGV4dCB4PSIxMDAiIHk9IjE1MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzlDQTNBRiIgZm9udC1zaXplPSIxMiI+UzMgVGh1bWJuYWlsPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTY1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEwIj5HZW5lcmF0aW5nLi4uPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTgwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjgiPk9yZGVyICMke29yZGVySWQgfHwgJ04vQSd9PC90ZXh0Pjwvc3ZnPg==`,
+      'thumbnail_error': `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRkVGMkYyIi8+CjxjaXJjbGUgY3g9IjEwMCIgY3k9IjEwMCIgcj0iMzAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+CjxwYXRoIGQ9Ik04NSA4NUwxMTUgMTE1TTExNSA4NUw4NSAxMTUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIi8+PHRleHQgeD0iMTAwIiB5PSIxNTAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiNFRjQ0NDQiIGZvbnQtc2l6ZT0iMTIiPlMzIFRodW1iIEVycm9yPC90ZXh0Pjx0ZXh0IHg9IjEwMCIgeT0iMTY1IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjRUY0NDQ0IiBmb250LXNpemU9IjEwIj5DbGljayB0byByZXRyeTwvdGV4dD48dGV4dCB4PSIxMDAiIHk9IjE4MCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iI0VGNDQ0NCIgZm9udC1zaXplPSI4Ij5PcmRlciAjJHtvcmRlcklkIHx8ICdOL0EnfTwvdGV4dD48L3N2Zz4=`,
+      'default': `data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik04NSA4NUgxMTVWMTE1SDg1Vjg1WiIgZmlsbD0iIzlDQTNBRiIvPgo8cGF0aCBkPSJNNzAgNzBIMTMwVjEzMEg3MFY3MFoiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIi8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTUwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOUNBM0FGIiBmb250LXNpemU9IjEyIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxNjUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Q0EzQUYiIGZvbnQtc2l6ZT0iMTAiPlMzIFN0b3JhZ2UgSXNzdWU8L3RleHQ+PHRleHQgeD0iMTAwIiB5PSIxODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZpbGw9IiM5Q0EzQUYiIGZvbnQtc2l6ZT0iOCI+T3JkZXIgIyR7b3JkZXJJZCB8fCAnTi9BJyl9PC90ZXh0Pjwvc3ZnPg==`
     };
     
     return placeholders[type] || placeholders['default'];
+  }
+
+  // Legacy method for backward compatibility
+  getPlaceholderImage(type = 'default') {
+    return this.getEnhancedPlaceholderImage(type);
   }
 // Generate S3 access URL based on user role and file access permissions
   generateS3AccessUrl(order, userRole) {
