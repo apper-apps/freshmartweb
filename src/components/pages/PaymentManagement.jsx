@@ -333,6 +333,235 @@ const PaymentGatewayManagement = ({ paymentMethods, onGatewayUpdate }) => {
     </div>
   );
 };
+
+// Payment Proof Viewer Component for Admin
+const PaymentProofViewer = ({ verification, userRole = 'admin' }) => {
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [fullImageUrl, setFullImageUrl] = useState(null);
+
+  const getImageUrl = () => {
+    // Try multiple sources for image URL
+    if (verification.paymentProofUrl) return verification.paymentProofUrl;
+    if (verification.paymentProof?.fileUrl) return verification.paymentProof.fileUrl;
+    if (verification.paymentProofFileName) {
+      return `/api/payment-proofs/secure/${verification.paymentProofFileName}?order=${verification.orderId}&auth=admin`;
+    }
+    return null;
+  };
+
+  const getThumbnailUrl = () => {
+    if (verification.paymentProofThumbnail) return verification.paymentProofThumbnail;
+    if (verification.paymentProof?.thumbnailUrl) return verification.paymentProof.thumbnailUrl;
+    return getImageUrl(); // Fallback to full image
+  };
+
+  const handleDownload = async () => {
+    if (!verification.paymentProofFileName) return;
+    
+    setDownloadLoading(true);
+    try {
+      // Get secure download URL for admin
+      const response = await fetch(`/api/admin/payment-proofs/${verification.paymentProofFileName}/download`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('adminToken') || 'mock-admin-token'}`,
+          'User-Role': userRole
+        }
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = verification.paymentProof?.originalName || verification.paymentProofFileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(downloadUrl);
+        toast.success('Payment proof downloaded successfully');
+      } else {
+        throw new Error('Download failed');
+      }
+    } catch (error) {
+      console.error('Download failed:', error);
+      toast.error('Failed to download payment proof');
+      // Fallback to direct URL
+      const imageUrl = getImageUrl();
+      if (imageUrl) {
+        window.open(imageUrl, '_blank');
+      }
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
+
+  const handleViewFullImage = () => {
+    const imageUrl = getImageUrl();
+    if (imageUrl) {
+      setFullImageUrl(imageUrl);
+    }
+  };
+
+  const imageUrl = getImageUrl();
+  const thumbnailUrl = getThumbnailUrl();
+  
+  if (!imageUrl) {
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center space-x-2 text-gray-500">
+          <ApperIcon name="AlertCircle" size={16} />
+          <span className="text-sm">Payment proof not available</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if it's a PDF
+  const isPdf = verification.paymentProofFileName?.toLowerCase().endsWith('.pdf');
+
+  if (isPdf) {
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="bg-red-100 p-2 rounded-lg">
+              <ApperIcon name="FileText" size={20} className="text-red-600" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                {verification.paymentProofFileName}
+              </p>
+              <p className="text-xs text-gray-500">PDF Document</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => window.open(imageUrl, '_blank')}
+              className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <ApperIcon name="Eye" size={14} />
+              <span className="text-xs">View</span>
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={downloadLoading}
+              className="flex items-center space-x-1 text-primary hover:text-primary-dark transition-colors disabled:opacity-50"
+            >
+              {downloadLoading ? (
+                <ApperIcon name="Loader" size={14} className="animate-spin" />
+              ) : (
+                <ApperIcon name="Download" size={14} />
+              )}
+              <span className="text-xs">Download</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+      <div className="space-y-3">
+        {/* Image Display */}
+        <div className="relative">
+          {imageLoading && (
+            <div className="w-full h-48 bg-gray-200 rounded-lg animate-pulse flex items-center justify-center">
+              <ApperIcon name="Image" size={32} className="text-gray-400" />
+            </div>
+          )}
+          {!imageError ? (
+            <img
+              src={thumbnailUrl}
+              alt="Payment Proof"
+              className={`w-full h-48 object-cover rounded-lg cursor-pointer transition-opacity hover:opacity-90 ${
+                imageLoading ? 'opacity-0 absolute' : 'opacity-100'
+              }`}
+              onLoad={() => setImageLoading(false)}
+              onError={() => {
+                setImageError(true);
+                setImageLoading(false);
+              }}
+              onClick={handleViewFullImage}
+            />
+          ) : (
+            <div className="w-full h-48 bg-gray-200 rounded-lg flex items-center justify-center">
+              <div className="text-center">
+                <ApperIcon name="ImageOff" size={32} className="text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">Image failed to load</p>
+                <button
+                  onClick={() => window.open(imageUrl, '_blank')}
+                  className="text-xs text-blue-600 hover:text-blue-700 mt-1"
+                >
+                  Try opening in new tab
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Image Info and Actions */}
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-900">
+              {verification.paymentProofFileName}
+            </p>
+            <p className="text-xs text-gray-500">
+              Submitted for Order #{verification.orderId}
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleViewFullImage}
+              className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              <ApperIcon name="Eye" size={14} />
+              <span className="text-xs">View Full</span>
+            </button>
+            <button
+              onClick={handleDownload}
+              disabled={downloadLoading}
+              className="flex items-center space-x-1 text-primary hover:text-primary-dark transition-colors disabled:opacity-50"
+            >
+              {downloadLoading ? (
+                <ApperIcon name="Loader" size={14} className="animate-spin" />
+              ) : (
+                <ApperIcon name="Download" size={14} />
+              )}
+              <span className="text-xs">Download</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Full Image Modal */}
+      {fullImageUrl && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+          onClick={() => setFullImageUrl(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] p-4">
+            <button
+              onClick={() => setFullImageUrl(null)}
+              className="absolute top-2 right-2 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors z-10"
+            >
+              <ApperIcon name="X" size={16} />
+            </button>
+            <img
+              src={fullImageUrl}
+              alt="Payment Proof - Full Size"
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PaymentManagement = () => {
   const [transactions, setTransactions] = useState([]);
   const [walletTransactions, setWalletTransactions] = useState([]);
@@ -952,11 +1181,7 @@ const getFilteredTransactions = () => {
                           <ApperIcon name="FileImage" size={14} className="text-gray-500" />
                           <span className="text-sm text-gray-600">Payment proof submitted</span>
                         </div>
-                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                          <p className="text-sm text-gray-700">
-                            File: {verification.paymentProofFileName || 'Unknown'}
-                          </p>
-                        </div>
+                        <PaymentProofViewer verification={verification} userRole="admin" />
                       </div>
                     )}
 

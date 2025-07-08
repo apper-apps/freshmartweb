@@ -13,9 +13,177 @@ const Orders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Payment Proof Display Component
+  const PaymentProofDisplay = ({ order }) => {
+    const [imageLoading, setImageLoading] = useState(true);
+    const [imageError, setImageError] = useState(false);
+    const [downloadLoading, setDownloadLoading] = useState(false);
+    
+    const getPaymentProofUrl = () => {
+      if (order.paymentProofUrl) {
+        return order.paymentProofUrl;
+      }
+      if (order.paymentProof?.fileUrl) {
+        return order.paymentProof.fileUrl;
+      }
+      if (order.paymentProofFileName) {
+        return `/api/payment-proofs/secure/${order.paymentProofFileName}?order=${order.id}`;
+      }
+      return null;
+    };
+
+    const getThumbnailUrl = () => {
+      if (order.paymentProofThumbnailUrl) {
+        return order.paymentProofThumbnailUrl;
+      }
+      if (order.paymentProof?.thumbnailUrl) {
+        return order.paymentProof.thumbnailUrl;
+      }
+      return getPaymentProofUrl();
+    };
+
+    const handleDownload = async () => {
+      if (!order.paymentProofFileName) return;
+      
+      setDownloadLoading(true);
+      try {
+        // Create download link
+        const downloadUrl = getPaymentProofUrl();
+        if (downloadUrl) {
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = order.paymentProof?.originalName || order.paymentProofFileName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (error) {
+        console.error('Download failed:', error);
+      } finally {
+        setDownloadLoading(false);
+      }
+    };
+
+    const proofUrl = getPaymentProofUrl();
+    const thumbnailUrl = getThumbnailUrl();
+    
+    if (!proofUrl) {
+      return (
+        <div className="flex items-center space-x-2 text-gray-500 text-sm">
+          <ApperIcon name="AlertCircle" size={16} />
+          <span>Payment proof not available</span>
+        </div>
+      );
+    }
+
+    // Check if it's a PDF
+    const isPdf = order.paymentProofFileName?.toLowerCase().endsWith('.pdf') || 
+                  order.paymentProof?.fileType === 'application/pdf';
+
+    if (isPdf) {
+      return (
+        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="bg-red-100 p-2 rounded-lg">
+                <ApperIcon name="FileText" size={20} className="text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  {order.paymentProof?.originalName || order.paymentProofFileName}
+                </p>
+                <p className="text-xs text-gray-500">PDF Document</p>
+              </div>
+            </div>
+            <button
+              onClick={handleDownload}
+              disabled={downloadLoading}
+              className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors disabled:opacity-50"
+            >
+              {downloadLoading ? (
+                <ApperIcon name="Loader" size={16} className="animate-spin" />
+              ) : (
+                <ApperIcon name="Download" size={16} />
+              )}
+              <span className="text-sm">Download</span>
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+        <div className="space-y-3">
+          {/* Image Display */}
+          <div className="relative">
+            {imageLoading && (
+              <div className="w-full h-32 bg-gray-200 rounded-lg animate-pulse flex items-center justify-center">
+                <ApperIcon name="Image" size={24} className="text-gray-400" />
+              </div>
+            )}
+            {!imageError ? (
+              <img
+                src={thumbnailUrl}
+                alt="Payment Proof"
+                className={`w-full h-32 object-cover rounded-lg cursor-pointer transition-opacity ${
+                  imageLoading ? 'opacity-0 absolute' : 'opacity-100'
+                }`}
+                onLoad={() => setImageLoading(false)}
+                onError={() => {
+                  setImageError(true);
+                  setImageLoading(false);
+                }}
+                onClick={() => window.open(proofUrl, '_blank')}
+              />
+            ) : (
+              <div className="w-full h-32 bg-gray-200 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <ApperIcon name="ImageOff" size={24} className="text-gray-400 mx-auto mb-2" />
+                  <p className="text-xs text-gray-500">Image not available</p>
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Actions */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-500">
+                {order.paymentProof?.originalName || order.paymentProofFileName}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => window.open(proofUrl, '_blank')}
+                className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 transition-colors"
+              >
+                <ApperIcon name="Eye" size={14} />
+                <span className="text-xs">View</span>
+              </button>
+              <button
+                onClick={handleDownload}
+                disabled={downloadLoading}
+                className="flex items-center space-x-1 text-primary hover:text-primary-dark transition-colors disabled:opacity-50"
+              >
+                {downloadLoading ? (
+                  <ApperIcon name="Loader" size={14} className="animate-spin" />
+                ) : (
+                  <ApperIcon name="Download" size={14} />
+                )}
+                <span className="text-xs">Download</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+);
+  };
+
   useEffect(() => {
     loadOrders();
-  }, []);
 
   const loadOrders = async () => {
     try {
@@ -203,6 +371,7 @@ const Orders = () => {
                           <ApperIcon name="FileImage" size={14} className="text-gray-500" />
                           <span className="text-sm text-gray-600">Payment proof submitted</span>
                         </div>
+                        <PaymentProofDisplay order={order} />
                       </div>
                     )}
                 </div>

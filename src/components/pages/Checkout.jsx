@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { toast } from 'react-toastify'
-import useCart from '@/hooks/useCart'
-import ApperIcon from '@/components/ApperIcon'
-import Button from '@/components/atoms/Button'
-import Input from '@/components/atoms/Input'
-import Loading from '@/components/ui/Loading'
-import Account from '@/components/pages/Account'
-import PaymentMethod from '@/components/molecules/PaymentMethod'
-import { orderService } from '@/services/api/orderService'
-import productService from '@/services/api/productService'
-import { paymentService } from '@/services/api/paymentService'
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import ApperIcon from "@/components/ApperIcon";
+import Button from "@/components/atoms/Button";
+import Input from "@/components/atoms/Input";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import Account from "@/components/pages/Account";
+import PaymentMethod from "@/components/molecules/PaymentMethod";
+import useCart from "@/hooks/useCart";
+import { orderService } from "@/services/api/orderService";
+import productService, { getProductById } from "@/services/api/productService";
+import { paymentService } from "@/services/api/paymentService";
 
 function Checkout() {
   const navigate = useNavigate()
@@ -246,18 +247,56 @@ function Checkout() {
     
     // Return S3 thumbnail URL with public access
     return `${s3BaseUrl}/payment-proofs/thumbnails/${thumbnailFileName}`;
+}
+  
+  // Download payment proof function
+  async function downloadPaymentProof(proofData) {
+    try {
+      if (proofData.fileUrl) {
+        const link = document.createElement('a')
+        link.href = proofData.fileUrl
+        link.download = proofData.originalName || proofData.fileName
+        link.target = '_blank'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        toast.success('Download started')
+      } else {
+        toast.error('Download URL not available')
+      }
+    } catch (error) {
+      console.error('Download failed:', error)
+      toast.error('Failed to download payment proof')
+toast.error('Failed to download payment proof')
+    }
   }
 
-async function completeOrder(paymentResult) {
+  async function completeOrder(paymentResult) {
     try {
       let paymentProofData = null
       
       // Upload payment proof file to secure storage if exists
-      if (paymentProof) {
+if (paymentProof) {
         try {
           const tempOrderId = Date.now() // Temporary ID for file naming
           const tempTransactionId = transactionId || paymentResult?.transactionId || 'temp'
           paymentProofData = await uploadPaymentProofFile(paymentProof, tempOrderId, tempTransactionId)
+          
+          // Show success message with download option
+          if (paymentProofData) {
+            toast.success(
+              <div className="space-y-2">
+                <p>Payment proof uploaded successfully!</p>
+                <button
+                  onClick={() => downloadPaymentProof(paymentProofData)}
+                  className="text-sm text-blue-600 hover:text-blue-700 underline"
+                >
+                  Download your uploaded proof
+                </button>
+              </div>,
+              { autoClose: 8000 }
+            )
+          }
         } catch (fileError) {
           console.warn('Failed to upload payment proof:', fileError)
           toast.warn('Payment proof could not be uploaded, but order will continue')
@@ -709,9 +748,76 @@ if (paymentMethod === 'card') {
                     </div>
                   </div>
                 )}
+)}
+                
+                {/* Payment Proof Upload Section */}
+                {paymentMethod !== 'cash' && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Payment Proof (Optional)
+                    </label>
+                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                      <input
+                        type="file"
+                        id="paymentProof"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const file = e.target.files[0]
+                          if (file) {
+                            // Validate file size (5MB max)
+                            if (file.size > 5 * 1024 * 1024) {
+                              toast.error('File size must be less than 5MB')
+                              e.target.value = ''
+                              return
+                            }
+                            setPaymentProof(file)
+                            toast.success('Payment proof selected successfully')
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <label htmlFor="paymentProof" className="cursor-pointer">
+                        <div className="space-y-2">
+                          <ApperIcon name="Upload" size={24} className="mx-auto text-gray-400" />
+                          <p className="text-sm text-gray-600">
+                            {paymentProof ? (
+                              <span className="text-green-600 font-medium">
+                                ✓ {paymentProof.name}
+                              </span>
+                            ) : (
+                              <>Click to upload payment screenshot or receipt</>
+                            )}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Supports: JPG, PNG, PDF (Max 5MB)
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                    
+                    {paymentProof && (
+                      <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <ApperIcon name="CheckCircle" size={16} className="text-green-600" />
+                            <span className="text-sm text-green-800">Payment proof ready to upload</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentProof(null)
+                              document.getElementById('paymentProof').value = ''
+                            }}
+                            className="text-red-600 hover:text-red-700"
+                          >
+                            <ApperIcon name="X" size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-
-              {/* Submit Button */}
 {/* Submit Button */}
               <div className="card p-6">
                 <Button
@@ -722,10 +828,10 @@ if (paymentMethod === 'card') {
                   {loading ? 'Processing...' : `Place Order - Rs. ${total.toLocaleString()}`}
                 </Button>
               </div>
-            </form>
+</form>
           </div>
         </div>
-</div>
+      </div>
     </div>
   )
 }
