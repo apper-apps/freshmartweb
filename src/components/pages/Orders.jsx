@@ -177,13 +177,9 @@ const Orders = () => {
             </div>
           </div>
         </div>
-      </div>
+</div>
     );
-);
   };
-
-  useEffect(() => {
-    loadOrders();
 
   const loadOrders = async () => {
     try {
@@ -199,6 +195,10 @@ const Orders = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadOrders();
+  }, []);
 
   if (loading) {
     return (
