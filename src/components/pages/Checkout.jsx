@@ -15,7 +15,7 @@ import { paymentService } from "@/services/api/paymentService";
 
 function Checkout() {
   const navigate = useNavigate()
-  const { cart, clearCart } = useCart()
+  const { items: cart, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([])
