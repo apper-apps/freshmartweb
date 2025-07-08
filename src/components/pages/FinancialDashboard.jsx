@@ -12,8 +12,7 @@ import Loading from "@/components/ui/Loading";
 import Analytics from "@/components/pages/Analytics";
 import Category from "@/components/pages/Category";
 import { orderService } from "@/services/api/orderService";
-import { productService } from "@/services/api/productService";
-
+import productService from "@/services/api/productService";
 const FinancialDashboard = () => {
   const [data, setData] = useState({
     products: [],
