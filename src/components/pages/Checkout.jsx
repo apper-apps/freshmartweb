@@ -359,9 +359,16 @@ async function completeOrder(paymentResult) {
       const validatedItems = [];
       let hasValidationErrors = false;
       
-      for (const item of cart) {
+for (const item of cart) {
         try {
-          const currentProduct = await productService.getById(item.id);
+          const productResponse = await productService.getProductById(item.id);
+          const currentProduct = productResponse.data || productResponse;
+          
+          if (!currentProduct) {
+            toast.error(`${item.name || 'Product'} is no longer available`);
+            hasValidationErrors = true;
+            continue;
+          }
           
           if (!currentProduct.isActive) {
             toast.error(`${item.name} is no longer available`);
@@ -385,13 +392,14 @@ async function completeOrder(paymentResult) {
             validatedAt: new Date().toISOString()
           });
         } catch (error) {
-          toast.error(`Failed to validate ${item.name}`);
+          console.error('Product validation error:', error);
+          toast.error(`Failed to validate ${item.name || 'product'}: ${error.message || 'Product unavailable'}`);
           hasValidationErrors = true;
         }
       }
       
       if (hasValidationErrors) {
-        throw new Error('Please review cart items and try again');
+        throw new Error('Cart validation failed. Please check cart items and try again.');
       }
 
       // Recalculate totals with validated prices

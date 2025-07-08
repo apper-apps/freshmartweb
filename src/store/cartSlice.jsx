@@ -48,11 +48,12 @@ for (const item of cart.items) {
               });
             }
           }
-        } catch (error) {
+} catch (error) {
+          console.error('Cart validation error for item:', item.id, error);
           validationResults.push({
             id: item.id,
-            name: item.name,
-            error: 'Product no longer available',
+            name: item.name || 'Unknown product',
+            error: error.message || 'Product no longer available',
             unavailable: true
           });
         }
@@ -87,7 +88,7 @@ try {
         throw new Error(`Only ${product.stock} ${product.unit || 'pieces'} available in stock`);
       }
       
-      return product;
+return product;
     } catch (error) {
       console.error('Product validation error:', error);
       return rejectWithValue(error.message || 'Failed to add product to cart');
@@ -119,7 +120,7 @@ export const updateQuantityWithValidation = createAsyncThunk(
         throw new Error(`Only ${product.stock} ${product.unit || 'pieces'} available in stock`);
       }
       
-      return { productId, quantity, currentProduct: product };
+return { productId, quantity, currentProduct: product };
     } catch (error) {
       console.error('Quantity validation error:', error);
       return rejectWithValue(error.message || 'Failed to update quantity');
