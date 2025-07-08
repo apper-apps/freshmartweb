@@ -1,6 +1,8 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { toast } from "react-toastify";
-import productService from "@/services/api/productService";
+import React from "react";
+import Error from "@/components/ui/Error";
+import productService, { getProductById } from "@/services/api/productService";
 
 // Initial state
 const initialState = {
@@ -20,11 +22,10 @@ export const validateCartPrices = createAsyncThunk(
       const { cart } = getState();
       const validationResults = [];
       
-      for (const item of cart.items) {
+for (const item of cart.items) {
         try {
-          const productResponse = await productService.getById(item.id);
+          const productResponse = await productService.getProductById(item.id);
           const product = productResponse.data || productResponse;
-          
           if (!product || !product.isActive) {
             validationResults.push({
               id: item.id,
@@ -70,8 +71,8 @@ export const validateCartPrices = createAsyncThunk(
 export const addToCartWithValidation = createAsyncThunk(
   'cart/addToCartWithValidation',
   async (productId, { getState, rejectWithValue }) => {
-    try {
-      const productResponse = await productService.getById(productId);
+try {
+      const productResponse = await productService.getProductById(productId);
       const product = productResponse.data || productResponse;
       
       if (!product || !product.isActive) {
@@ -109,7 +110,7 @@ export const updateQuantityWithValidation = createAsyncThunk(
         return { productId, quantity: 0, remove: true };
       }
       
-      const productResponse = await productService.getById(productId);
+      const productResponse = await productService.getProductById(productId);
       const product = productResponse.data || productResponse;
       
       if (!product || !product.isActive) {
