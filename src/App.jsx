@@ -9,21 +9,27 @@ import { persistor, store } from "@/store/index";
 import Layout from "@/components/organisms/Layout";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
+import PayrollManagement from "@/components/pages/PayrollManagement";
+import AdminDashboard from "@/components/pages/AdminDashboard";
 import ProductDetail from "@/components/pages/ProductDetail";
 import Cart from "@/components/pages/Cart";
+import AIGenerate from "@/components/pages/AIGenerate";
+import Analytics from "@/components/pages/Analytics";
+import Orders from "@/components/pages/Orders";
+import PaymentManagement from "@/components/pages/PaymentManagement";
+import AddProduct from "@/components/pages/AddProduct";
+import Category from "@/components/pages/Category";
+import OrderTracking from "@/components/pages/OrderTracking";
+import Account from "@/components/pages/Account";
+import ManageProducts from "@/components/pages/ManageProducts";
+import DeliveryTracking from "@/components/pages/DeliveryTracking";
+import EditProduct from "@/components/pages/EditProduct";
+import POS from "@/components/pages/POS";
 import Checkout from "@/components/pages/Checkout";
+import FinancialDashboard from "@/components/pages/FinancialDashboard";
 import Home from "@/components/pages/Home";
 import { fileCleanupService } from "@/services/api/fileCleanupService";
-
-// Lazy load components for better performance
-const AdminDashboard = React.lazy(() => import('@/components/pages/AdminDashboard'))
-const Analytics = React.lazy(() => import('@/components/pages/Analytics'))
-const FinancialDashboard = React.lazy(() => import('@/components/pages/FinancialDashboard'))
-const POS = React.lazy(() => import('@/components/pages/POS'))
-const PaymentManagement = React.lazy(() => import('@/components/pages/PaymentManagement'))
-const PayrollManagement = React.lazy(() => import('@/components/pages/PayrollManagement'))
-const DeliveryTracking = React.lazy(() => import('@/components/pages/DeliveryTracking'))
-const AIGenerate = React.lazy(() => import('@/components/pages/AIGenerate'))
+// Lazy load components for better performance (only for components not already imported)
 const Category = React.lazy(() => import('@/components/pages/Category'))
 const Orders = React.lazy(() => import('@/components/pages/Orders'))
 const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'))
@@ -31,6 +37,7 @@ const Account = React.lazy(() => import('@/components/pages/Account'))
 const ManageProducts = React.lazy(() => import('@/components/pages/ManageProducts'))
 const AddProduct = React.lazy(() => import('@/components/pages/AddProduct'))
 const EditProduct = React.lazy(() => import('@/components/pages/EditProduct'))
+
 // Error boundary component for better error handling
 function LazyErrorBoundary({ children, fallback }) {
   const [hasError, setHasError] = useState(false)
