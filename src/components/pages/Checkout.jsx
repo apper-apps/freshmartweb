@@ -32,9 +32,8 @@ function Checkout() {
   const [paymentProof, setPaymentProof] = useState(null)
   const [transactionId, setTransactionId] = useState('')
   const [errors, setErrors] = useState({})
-
-// Calculate totals with validated pricing
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+// Calculate totals with validated pricing - safe cart handling
+  const subtotal = (cart || []).reduce((sum, item) => sum + (item.price * item.quantity), 0)
   const deliveryCharge = subtotal >= 2000 ? 0 : 150 // Free delivery over Rs. 2000
   const gatewayFee = calculateGatewayFee()
   const total = subtotal + deliveryCharge + gatewayFee

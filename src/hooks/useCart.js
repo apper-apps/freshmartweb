@@ -22,14 +22,14 @@ import {
 const useCart = () => {
   const dispatch = useDispatch();
   
-  // Cart state selectors - called at hook level
-  const items = useSelector(selectCartItems);
-  const total = useSelector(selectCartTotal);
-  const itemCount = useSelector(selectCartItemCount);
-  const isLoading = useSelector(selectCartLoading);
+  // Cart state selectors - called at hook level with safe defaults
+  const items = useSelector(selectCartItems) || [];
+  const total = useSelector(selectCartTotal) || 0;
+  const itemCount = useSelector(selectCartItemCount) || 0;
+  const isLoading = useSelector(selectCartLoading) || false;
   
   // Cart actions with error handling
-const addToCart = async (product) => {
+  const addToCart = async (product) => {
     try {
       const result = await dispatch(addToCartWithValidation(product.id || product.Id));
       if (addToCartWithValidation.rejected.match(result)) {
